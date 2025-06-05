@@ -1,30 +1,25 @@
 import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/rs_lib.js";
 
-export interface LoadResponse {
-  /**
-   * Fully resolved URL.
-   * 
-   * This may be different than the provided specifier. For example, during loading
-   * it may encounter redirects and this specifier is the redirected to final specifier.
-   */
-  specifier: string;
-  /** Content that was loaded. */
-  mediaType: MediaType;
-  /** Code that was loaded. */
-  code: Uint8Array;
+/** Options for creating a workspace. */
+export interface DenoWorkspaceOptions {
+  /** Do not do config file discovery. */
+  noConfig?: boolean;
+  /** Do not respect the lockfile. */
+  noLock?: boolean;
+  /** Path to the config file if you do not want to do config file discovery. */
+  configPath?: string;
+  /** Node resolution conditions to use for resolving package.json exports. */
+  nodeConditions?: string[];
+  /** Whether to force using the cache. */
+  cachedOnly?: boolean;
 }
 
+/** Options for loading. */
 export interface LoaderOptions {
+  /** Entrypoints to create the loader for. */
   entrypoints: string[]
 }
 
-export interface DenoWorkspaceOptions {
-  noConfig?: boolean;
-  noLock?: boolean;
-  configPath?: string;
-  nodeConditions?: string[];
-  cachedOnly?: boolean;
-}
 
 /** File type. */
 export enum MediaType {
@@ -48,14 +43,34 @@ export enum MediaType {
   Unknown = 17,
 }
 
-export enum ResolutionMode {
-  Require = 0,
-  Import = 1,
+/** A response received from a load. */
+export interface LoadResponse {
+  /**
+   * Fully resolved URL.
+   * 
+   * This may be different than the provided specifier. For example, during loading
+   * it may encounter redirects and this specifier is the redirected to final specifier.
+   */
+  specifier: string;
+  /** Content that was loaded. */
+  mediaType: MediaType;
+  /** Code that was loaded. */
+  code: Uint8Array;
 }
 
+/** Kind of resolution. */
+export enum ResolutionMode {
+  /** Resolving from an ESM file. */
+  Import = 0,
+  /** Resolving from a CJS file. */
+  Require = 1,
+}
+
+/** Resolves the workspace. */
 export class DenoWorkspace implements Disposable {
   #inner: WasmWorkspace;
 
+  /** Creates a `DenoWorkspace` with the provided options. */
   constructor(options: DenoWorkspaceOptions = {}) {
     this.#inner = new WasmWorkspace(options);
   }
@@ -64,12 +79,14 @@ export class DenoWorkspace implements Disposable {
     this.#inner.free();
   }
 
+  /** Creates a loader that uses this this workspace. */
   async createLoader(options: LoaderOptions): Promise<DenoLoader> {
     const wasmLoader = await this.#inner.create_loader(options.entrypoints);
     return new DenoLoader(wasmLoader);
   }
 }
 
+/** A loader for resolving and loading urls. */
 export class DenoLoader implements Disposable {
   #inner: WasmLoader;
 
@@ -85,10 +102,12 @@ export class DenoLoader implements Disposable {
     this.#inner.free();
   }
 
+  /** Resolves a specifier using the given referrer and resolution mode. */
   resolve(specifier: string, referrer: string | undefined, resolutionMode: ResolutionMode): string {
     return this.#inner.resolve(specifier, referrer, resolutionMode)
   }
 
+  /** Loads a specifier. */
   load(specifier: string): Promise<LoadResponse> {
     return this.#inner.load(specifier);
   }

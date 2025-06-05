@@ -332,7 +332,7 @@ impl DenoLoader {
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
     let resolution_mode = match resolution_mode {
-      0 => node_resolver::ResolutionMode::Require,
+      1 => node_resolver::ResolutionMode::Require,
       _ => node_resolver::ResolutionMode::Import,
     };
     self
