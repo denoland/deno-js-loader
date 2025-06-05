@@ -1,5 +1,32 @@
 import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/rs_lib.js";
 
+/**
+ * @module
+ * Resolver and loader for Deno code.
+ *
+ * This can be used to create bundler plugins or libraries that use deno resolution.
+ *
+ * ```ts
+ * import { DenoWorkspace, ResolutionMode } from "@deno/loader";
+ * 
+ * const workspace = new DenoWorkspace({
+ *   // optional options
+ * });
+ * const loader = workspace.createLoader({
+ *   entrypoints: ["./mod.ts"]
+ * });
+ * const resolvedUrl = loader.resolve(
+ *   "./mod.test.ts",
+ *   "https://deno.land/mod.ts", // referrer
+ *   ResolutionMode.Import,
+ * );
+ * const loadedModule = await loader.load(resolvedUrl);
+ * console.log(loadedModule.specifier);
+ * console.log(loadedModule.code);
+ * console.log(loadedModule.mediaType);
+ * ```
+ */
+
 /** Options for creating a workspace. */
 export interface DenoWorkspaceOptions {
   /** Do not do config file discovery. */
