@@ -1,5 +1,3 @@
-import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/rs_lib.js";
-
 /**
  * Resolver and loader for Deno code.
  *
@@ -27,6 +25,8 @@ import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/
  * ```
  * @module
  */
+
+import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/rs_lib.js";
 
 /** Options for creating a workspace. */
 export interface DenoWorkspaceOptions {
