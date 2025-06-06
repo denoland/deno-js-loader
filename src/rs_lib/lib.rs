@@ -129,8 +129,8 @@ impl DenoWorkspace {
     let cwd = sys.env_current_dir()?;
     let config_discovery = if options.no_config {
       ConfigDiscoveryOption::Disabled
-    } else if let Some(config_path) = &options.config_path {
-      ConfigDiscoveryOption::Path(cwd.join(config_path))
+    } else if let Some(config_path) = options.config_path {
+      ConfigDiscoveryOption::Path(resolve_absolute_path(config_path, &cwd))
     } else {
       ConfigDiscoveryOption::DiscoverCwd
     };
@@ -229,7 +229,7 @@ impl DenoWorkspace {
   ) -> Result<DenoLoader, anyhow::Error> {
     let cwd = self.workspace_factory.initial_cwd();
     let roots = entrypoints
-      .iter()
+      .into_iter()
       .map(|e| parse_entrypoint(e, &cwd))
       .collect::<Result<Vec<_>, _>>()?;
     self
@@ -346,18 +346,19 @@ impl DenoLoader {
     importer: Option<String>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
-    let referrer = match &importer {
+    let importer = importer.filter(|v| !v.is_empty());
+    let referrer = match importer {
       Some(referrer)
         if referrer.starts_with("http:")
           || referrer.starts_with("https:")
           || referrer.starts_with("file:") =>
       {
-        Url::parse(referrer)?
+        Url::parse(&referrer)?
       }
-      Some(referrer) => {
-        deno_path_util::url_from_file_path(&PathBuf::from(referrer))?
-      }
-      None => return Ok(parse_entrypoint(&specifier, &self.cwd)?.to_string()),
+      Some(referrer) => deno_path_util::url_from_file_path(
+        &sys_traits::impls::wasm_string_to_path(referrer),
+      )?,
+      None => return Ok(parse_entrypoint(specifier, &self.cwd)?.to_string()),
     };
     let resolved = self.resolver.resolve_with_graph(
       &self.graph,
@@ -429,7 +430,7 @@ fn create_load_response(
 }
 
 fn parse_entrypoint(
-  entrypoint: &str,
+  entrypoint: String,
   cwd: &Path,
 ) -> Result<Url, anyhow::Error> {
   if entrypoint.starts_with("jsr:")
@@ -438,8 +439,15 @@ fn parse_entrypoint(
   {
     Ok(Url::parse(&entrypoint)?)
   } else {
-    Ok(deno_path_util::url_from_file_path(&cwd.join(entrypoint))?)
+    Ok(deno_path_util::url_from_file_path(&resolve_absolute_path(
+      entrypoint, cwd,
+    ))?)
   }
+}
+
+fn resolve_absolute_path(path: String, cwd: &Path) -> PathBuf {
+  let path = sys_traits::impls::wasm_string_to_path(path);
+  cwd.join(path)
 }
 
 fn create_js_error(err: anyhow::Error) -> JsValue {

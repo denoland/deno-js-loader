@@ -7,7 +7,11 @@ Deno.test("should resolve and load", async () => {
   const loader = await workspace.createLoader({
     entrypoints: [modFileUrl],
   });
-  const resolvedUrl = loader.resolve("./mod.test.ts", modFileUrl, ResolutionMode.Import);
+  const resolvedUrl = loader.resolve(
+    "./mod.test.ts",
+    modFileUrl,
+    ResolutionMode.Import,
+  );
   assertEquals(resolvedUrl, import.meta.url);
   const loadResponse = await loader.load(import.meta.url);
   assertEquals(typeof loadResponse.specifier, "string");

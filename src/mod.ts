@@ -6,7 +6,7 @@
  * @example
  * ```ts
  * import { DenoWorkspace, ResolutionMode } from "@deno/loader";
- * 
+ *
  * const workspace = new DenoWorkspace({
  *   // optional options
  * });
@@ -26,7 +26,10 @@
  * @module
  */
 
-import { DenoLoader as WasmLoader, DenoWorkspace as WasmWorkspace } from "./lib/rs_lib.js";
+import {
+  DenoLoader as WasmLoader,
+  DenoWorkspace as WasmWorkspace,
+} from "./lib/rs_lib.js";
 
 /** Options for creating a workspace. */
 export interface DenoWorkspaceOptions {
@@ -40,14 +43,15 @@ export interface DenoWorkspaceOptions {
   nodeConditions?: string[];
   /** Whether to force using the cache. */
   cachedOnly?: boolean;
+  /** Enable debug logs. */
+  debug?: boolean;
 }
 
 /** Options for loading. */
 export interface LoaderOptions {
   /** Entrypoints to create the loader for. */
-  entrypoints: string[]
+  entrypoints: string[];
 }
-
 
 /** File type. */
 export enum MediaType {
@@ -75,7 +79,7 @@ export enum MediaType {
 export interface LoadResponse {
   /**
    * Fully resolved URL.
-   * 
+   *
    * This may be different than the provided specifier. For example, during loading
    * it may encounter redirects and this specifier is the redirected to final specifier.
    */
@@ -97,10 +101,12 @@ export enum ResolutionMode {
 /** Resolves the workspace. */
 export class DenoWorkspace implements Disposable {
   #inner: WasmWorkspace;
+  #debug: boolean;
 
   /** Creates a `DenoWorkspace` with the provided options. */
   constructor(options: DenoWorkspaceOptions = {}) {
     this.#inner = new WasmWorkspace(options);
+    this.#debug = options.debug ?? false;
   }
 
   [Symbol.dispose]() {
@@ -109,21 +115,30 @@ export class DenoWorkspace implements Disposable {
 
   /** Creates a loader that uses this this workspace. */
   async createLoader(options: LoaderOptions): Promise<DenoLoader> {
+    if (this.#debug) {
+      console.error(
+        `Creating loader for entrypoints:\n  ${
+          options.entrypoints.join("\n  ")
+        }`,
+      );
+    }
     const wasmLoader = await this.#inner.create_loader(options.entrypoints);
-    return new DenoLoader(wasmLoader);
+    return new DenoLoader(wasmLoader, this.#debug);
   }
 }
 
 /** A loader for resolving and loading urls. */
 export class DenoLoader implements Disposable {
   #inner: WasmLoader;
+  #debug: boolean;
 
   /** @internal */
-  constructor(loader: WasmLoader) {
+  constructor(loader: WasmLoader, debug: boolean) {
     if (!(loader instanceof WasmLoader)) {
       throw new Error("Get the loader from the workspace.");
     }
     this.#inner = loader;
+    this.#debug = debug;
   }
 
   [Symbol.dispose]() {
@@ -131,12 +146,43 @@ export class DenoLoader implements Disposable {
   }
 
   /** Resolves a specifier using the given referrer and resolution mode. */
-  resolve(specifier: string, referrer: string | undefined, resolutionMode: ResolutionMode): string {
-    return this.#inner.resolve(specifier, referrer, resolutionMode)
+  resolve(
+    specifier: string,
+    referrer: string | undefined,
+    resolutionMode: ResolutionMode,
+  ): string {
+    if (this.#debug) {
+      console.error(
+        `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
+          resolutionModeToString(resolutionMode)
+        })`,
+      );
+    }
+    const value = this.#inner.resolve(specifier, referrer, resolutionMode);
+    if (this.#debug) {
+      console.error(`Resolved to '${value}'`);
+    }
+    return value;
   }
 
   /** Loads a specifier. */
   load(specifier: string): Promise<LoadResponse> {
+    if (this.#debug) {
+      console.error(`Loading '${specifier}'`);
+    }
     return this.#inner.load(specifier);
+  }
+}
+
+function resolutionModeToString(mode: ResolutionMode) {
+  switch (mode) {
+    case ResolutionMode.Import:
+      return "import";
+    case ResolutionMode.Require:
+      return "require";
+    default: {
+      const _assertNever: never = mode;
+      return "unknown";
+    }
   }
 }
