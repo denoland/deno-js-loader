@@ -589,9 +589,9 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.95.0"
+version = "0.95.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af557eab0d8abf2c6e7c890d510eccaebe52388924ae4a3e15c8a818c1bbbb90"
+checksum = "365b662cfc14021c2994156d5a58b9c91d655879b817715e2d92d8adce5b3c31"
 dependencies = [
  "async-trait",
  "capacity_builder",
@@ -1947,6 +1947,7 @@ dependencies = [
  "deno_path_util 0.3.3",
  "deno_resolver",
  "deno_semver 0.8.0",
+ "deno_unsync",
  "js-sys",
  "node_resolver",
  "serde",
@@ -2193,7 +2194,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2470,9 +2471,9 @@ dependencies = [
 
 [[package]]
 name = "sys_traits"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "110a9308163844c6ce51149737dbcea372f101bffbc0ef05d5de06acb4a4128f"
+checksum = "dc4707edf3196e8037ee45018d1bb1bfb233b0e4fc440fa3d3f25bc69bfdaf26"
 dependencies = [
  "getrandom",
  "js-sys",
