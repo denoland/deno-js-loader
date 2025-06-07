@@ -76,7 +76,28 @@ export enum MediaType {
 }
 
 /** A response received from a load. */
-export interface LoadResponse {
+export type LoadResponse = ModuleLoadResponse | ExternalLoadResponse;
+
+/** A response that indicates the module is external.
+ *
+ * This will occur for `node:` specifiers for example.
+ */
+export interface ExternalLoadResponse {
+  /** Kind of response. */
+  kind: "external";
+  /**
+   * Fully resolved URL.
+   *
+   * This may be different than the provided specifier. For example, during loading
+   * it may encounter redirects and this specifier is the redirected to final specifier.
+   */
+  specifier: string;
+}
+
+/** A response that loads a module. */
+export interface ModuleLoadResponse {
+  /** Kind of response. */
+  kind: "module";
   /**
    * Fully resolved URL.
    *

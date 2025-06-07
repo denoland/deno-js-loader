@@ -397,24 +397,26 @@ impl DenoLoader {
     let url = Url::parse(&url)?;
 
     match self.graph.get(&url) {
-      Some(Module::Js(m)) => Ok(create_load_response(
+      Some(Module::Js(m)) => Ok(create_module_response(
         &m.specifier,
         m.media_type,
         m.source.as_bytes(),
       )),
-      Some(Module::Json(m)) => Ok(create_load_response(
+      Some(Module::Json(m)) => Ok(create_module_response(
         &m.specifier,
         MediaType::Json,
         m.source.as_bytes(),
       )),
-      Some(Module::Wasm(m)) => Ok(create_load_response(
+      Some(Module::Wasm(m)) => Ok(create_module_response(
         &m.specifier,
         MediaType::Wasm,
         &m.source,
       )),
-      Some(Module::Npm(_) | Module::Node(_) | Module::External(_)) | None => {
+      Some(Module::Node(node)) => Ok(create_external_repsonse(&node.specifier)),
+      None if url.scheme() == "node" => Ok(create_external_repsonse(&url)),
+      Some(Module::Npm(_) | Module::External(_)) | None => {
         let file = self.file_fetcher.fetch_bypass_permissions(&url).await?;
-        Ok(create_load_response(
+        Ok(create_module_response(
           &file.url,
           MediaType::from_specifier_and_headers(
             &url,
@@ -427,12 +429,18 @@ impl DenoLoader {
   }
 }
 
-fn create_load_response(
+fn create_module_response(
   url: &Url,
   media_type: MediaType,
   source: &[u8],
 ) -> JsValue {
   let obj = Object::new();
+  js_sys::Reflect::set(
+    &obj,
+    &JsValue::from_str("kind"),
+    &JsValue::from_str("module"),
+  )
+  .unwrap();
   let specifier = JsValue::from_str(url.as_str());
   js_sys::Reflect::set(&obj, &JsValue::from_str("specifier"), &specifier)
     .unwrap();
@@ -444,6 +452,20 @@ fn create_load_response(
   .unwrap();
   let code = Uint8Array::from(source);
   js_sys::Reflect::set(&obj, &JsValue::from_str("code"), &code).unwrap();
+  obj.into()
+}
+
+fn create_external_repsonse(url: &Url) -> JsValue {
+  let obj = Object::new();
+  js_sys::Reflect::set(
+    &obj,
+    &JsValue::from_str("kind"),
+    &JsValue::from_str("external"),
+  )
+  .unwrap();
+  let specifier = JsValue::from_str(url.as_str());
+  js_sys::Reflect::set(&obj, &JsValue::from_str("specifier"), &specifier)
+    .unwrap();
   obj.into()
 }
 

@@ -13,8 +13,20 @@ Deno.test("should resolve and load", async () => {
     ResolutionMode.Import,
   );
   assertEquals(resolvedUrl, import.meta.url);
-  const loadResponse = await loader.load(import.meta.url);
-  assertEquals(typeof loadResponse.specifier, "string");
-  assert(loadResponse.code instanceof Uint8Array);
-  assertEquals(loadResponse.mediaType, MediaType.TypeScript);
+  {
+    const loadResponse = await loader.load(import.meta.url);
+    if (loadResponse.kind !== "module")
+      throw new Error("Fail");
+    assertEquals(typeof loadResponse.specifier, "string");
+    assert(loadResponse.code instanceof Uint8Array);
+    assertEquals(loadResponse.mediaType, MediaType.TypeScript);
+  }
+  // node: specifier
+  {
+    const loadResponse = await loader.load("node:events");
+    if (loadResponse.kind !== "external")
+      throw new Error("Fail");
+    assertEquals(typeof loadResponse.specifier, "string");
+    assertEquals(loadResponse.specifier, "node:events");
+  }
 });
