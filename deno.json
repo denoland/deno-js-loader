@@ -1,6 +1,6 @@
 {
   "name": "@deno/loader",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "tasks": {
     "wasmbuild": "deno run -A jsr:@deno/wasmbuild@0.19.2 --out ./src/lib"
   },
