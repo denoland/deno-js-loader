@@ -2,6 +2,7 @@ mod http_client;
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use deno_cache_dir::file_fetcher::CacheSetting;
@@ -103,7 +104,7 @@ pub struct DenoWorkspaceOptions {
 pub struct DenoWorkspace {
   http_client: WasmHttpClient,
   npm_installer_factory:
-    NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>,
+    Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
 }
@@ -181,7 +182,7 @@ impl DenoWorkspace {
       },
     ));
     let http_client = WasmHttpClient::default();
-    let npm_installer_factory = NpmInstallerFactory::new(
+    let npm_installer_factory = Arc::new(NpmInstallerFactory::new(
       resolver_factory.clone(),
       Arc::new(http_client.clone()),
       Arc::new(NullLifecycleScriptsExecutor),
@@ -204,7 +205,7 @@ impl DenoWorkspace {
         },
         resolve_npm_resolution_snapshot: Box::new(|| Ok(None)),
       },
-    );
+    ));
     Ok(Self {
       http_client,
       npm_installer_factory,
@@ -213,42 +214,16 @@ impl DenoWorkspace {
     })
   }
 
-  pub async fn create_loader(
-    &self,
-    entrypoints: Vec<String>,
-  ) -> Result<DenoLoader, JsValue> {
-    self
-      .create_loader_inner(entrypoints)
-      .await
-      .map_err(create_js_error)
+  pub async fn create_loader(&self) -> Result<DenoLoader, JsValue> {
+    self.create_loader_inner().await.map_err(create_js_error)
   }
 
-  async fn create_loader_inner(
-    &self,
-    entrypoints: Vec<String>,
-  ) -> Result<DenoLoader, anyhow::Error> {
-    let cwd = self.workspace_factory.initial_cwd();
-    let roots = entrypoints
-      .into_iter()
-      .map(|e| parse_entrypoint(e, &cwd))
-      .collect::<Result<Vec<_>, _>>()?;
+  async fn create_loader_inner(&self) -> Result<DenoLoader, anyhow::Error> {
     self
       .npm_installer_factory
       .initialize_npm_resolution_if_managed()
       .await?;
-    let npm_package_info_provider = self
-      .npm_installer_factory
-      .lockfile_npm_package_info_provider()?;
-    let lockfile = self
-      .workspace_factory
-      .maybe_lockfile(npm_package_info_provider)
-      .await?;
     let resolver = self.resolver_factory.deno_resolver().await?;
-    let cjs_tracker = self.resolver_factory.cjs_tracker()?;
-    let jsx_config = ScopedJsxImportSourceConfig::from_workspace_dir(
-      self.workspace_factory.workspace_directory()?,
-    )?;
-
     let file_fetcher = Arc::new(PermissionedFileFetcher::new(
       NullBlobStore,
       Arc::new(self.workspace_factory.http_cache()?.clone()),
@@ -259,9 +234,72 @@ impl DenoWorkspace {
         cache_setting: CacheSetting::Use,
       },
     ));
-    let graph_resolver = resolver.as_graph_resolver(cjs_tracker, &jsx_config);
+    Ok(DenoLoader {
+      file_fetcher,
+      resolver: resolver.clone(),
+      workspace_factory: self.workspace_factory.clone(),
+      resolver_factory: self.resolver_factory.clone(),
+      npm_installer_factory: self.npm_installer_factory.clone(),
+      task_queue: Default::default(),
+      graph: deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly),
+    })
+  }
+}
+
+#[wasm_bindgen]
+pub struct DenoLoader {
+  resolver: DefaultDenoResolverRc<RealSys>,
+  file_fetcher:
+    Arc<PermissionedFileFetcher<NullBlobStore, RealSys, WasmHttpClient>>,
+  npm_installer_factory:
+    Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
+  resolver_factory: Arc<ResolverFactory<RealSys>>,
+  workspace_factory: Arc<WorkspaceFactory<RealSys>>,
+  graph: ModuleGraph,
+  task_queue: Rc<deno_unsync::TaskQueue>,
+}
+
+impl Drop for DenoLoader {
+  fn drop(&mut self) {
+    NodeResolutionThreadLocalCache::clear();
+  }
+}
+
+#[wasm_bindgen]
+impl DenoLoader {
+  pub async fn add_roots(&mut self, roots: Vec<String>) -> Result<(), JsValue> {
+    // only allow one async task to modify the graph at a time
+    let task_queue = self.task_queue.clone();
+    task_queue
+      .run(async { self.add_roots_inner(roots).await.map_err(create_js_error) })
+      .await
+  }
+
+  async fn add_roots_inner(
+    &mut self,
+    roots: Vec<String>,
+  ) -> Result<(), anyhow::Error> {
+    let cwd = self.workspace_factory.initial_cwd();
+    let roots = roots
+      .into_iter()
+      .map(|e| parse_entrypoint(e, &cwd))
+      .collect::<Result<Vec<_>, _>>()?;
+    let npm_package_info_provider = self
+      .npm_installer_factory
+      .lockfile_npm_package_info_provider()?;
+    let lockfile = self
+      .workspace_factory
+      .maybe_lockfile(npm_package_info_provider)
+      .await?;
+    let cjs_tracker = self.resolver_factory.cjs_tracker()?;
+    let jsx_config = ScopedJsxImportSourceConfig::from_workspace_dir(
+      self.workspace_factory.workspace_directory()?,
+    )?;
+
+    let graph_resolver =
+      self.resolver.as_graph_resolver(cjs_tracker, &jsx_config);
     let loader = DenoGraphLoader::new(
-      file_fetcher.clone(),
+      self.file_fetcher.clone(),
       self.workspace_factory.global_http_cache()?.clone(),
       self.resolver_factory.in_npm_package_checker()?.clone(),
       self.workspace_factory.sys().clone(),
@@ -272,11 +310,10 @@ impl DenoWorkspace {
     );
 
     let mut locker = lockfile.as_ref().map(|l| l.as_deno_graph_locker());
-    let mut graph =
-      deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly);
     let npm_resolver =
       self.npm_installer_factory.npm_deno_graph_resolver().await?;
-    graph
+    self
+      .graph
       .build(
         roots,
         Vec::new(),
@@ -297,34 +334,10 @@ impl DenoWorkspace {
         },
       )
       .await;
-    graph.valid()?;
-
-    Ok(DenoLoader {
-      cwd: cwd.clone(),
-      file_fetcher,
-      resolver: resolver.clone(),
-      graph,
-    })
+    self.graph.valid()?;
+    Ok(())
   }
-}
 
-#[wasm_bindgen]
-pub struct DenoLoader {
-  cwd: PathBuf,
-  resolver: DefaultDenoResolverRc<RealSys>,
-  file_fetcher:
-    Arc<PermissionedFileFetcher<NullBlobStore, RealSys, WasmHttpClient>>,
-  graph: ModuleGraph,
-}
-
-impl Drop for DenoLoader {
-  fn drop(&mut self) {
-    NodeResolutionThreadLocalCache::clear();
-  }
-}
-
-#[wasm_bindgen]
-impl DenoLoader {
   pub fn resolve(
     &self,
     specifier: String,
@@ -358,7 +371,12 @@ impl DenoLoader {
       Some(referrer) => deno_path_util::url_from_file_path(
         &sys_traits::impls::wasm_string_to_path(referrer),
       )?,
-      None => return Ok(parse_entrypoint(specifier, &self.cwd)?.to_string()),
+      None => {
+        return Ok(
+          parse_entrypoint(specifier, self.workspace_factory.initial_cwd())?
+            .to_string(),
+        );
+      }
     };
     let resolved = self.resolver.resolve_with_graph(
       &self.graph,

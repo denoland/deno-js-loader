@@ -122,7 +122,8 @@ export class DenoWorkspace implements Disposable {
         }`,
       );
     }
-    const wasmLoader = await this.#inner.create_loader(options.entrypoints);
+    const wasmLoader = await this.#inner.create_loader();
+    await wasmLoader.add_roots(options.entrypoints);
     return new DenoLoader(wasmLoader, this.#debug);
   }
 }
