@@ -88,16 +88,17 @@ pub struct LoadResponse {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DenoWorkspaceOptions {
+  // make all these optional to support someone providing `undefined`
   #[serde(default)]
-  pub no_config: bool,
+  pub no_config: Option<bool>,
   #[serde(default)]
-  pub no_lock: bool,
+  pub no_lock: Option<bool>,
   #[serde(default)]
   pub config_path: Option<String>,
   #[serde(default)]
-  pub node_conditions: Vec<String>,
+  pub node_conditions: Option<Vec<String>>,
   #[serde(default)]
-  pub cached_only: bool,
+  pub cached_only: Option<bool>,
 }
 
 #[wasm_bindgen]
@@ -120,15 +121,19 @@ impl DenoWorkspace {
   #[wasm_bindgen(constructor)]
   pub fn new(options: JsValue) -> Result<Self, JsValue> {
     console_error_panic_hook::set_once();
-    let options = serde_wasm_bindgen::from_value(options)
-      .map_err(|err| create_js_error(anyhow::anyhow!("{}", err)))?;
+    let options = serde_wasm_bindgen::from_value(options).map_err(|err| {
+      create_js_error(
+        anyhow::anyhow!("{}", err)
+          .context("Failed deserializing workspace options."),
+      )
+    })?;
     Self::new_inner(options).map_err(create_js_error)
   }
 
   fn new_inner(options: DenoWorkspaceOptions) -> Result<Self, anyhow::Error> {
     let sys = RealSys;
     let cwd = sys.env_current_dir()?;
-    let config_discovery = if options.no_config {
+    let config_discovery = if options.no_config.unwrap_or_default() {
       ConfigDiscoveryOption::Disabled
     } else if let Some(config_path) = options.config_path {
       ConfigDiscoveryOption::Path(resolve_absolute_path(config_path, &cwd))
@@ -147,7 +152,7 @@ impl DenoWorkspace {
         lock_arg: None,        // supports the default only
         lockfile_skip_write: false,
         node_modules_dir: None, // provide this via config
-        no_lock: options.no_lock,
+        no_lock: options.no_lock.unwrap_or_default(),
         no_npm: false,
         npm_process_state: None,
         vendor: None, // provide this via the config
@@ -164,6 +169,7 @@ impl DenoWorkspace {
           conditions: NodeConditionOptions {
             conditions: options
               .node_conditions
+              .unwrap_or_default()
               .into_iter()
               .map(|c| c.into())
               .collect(),
@@ -188,7 +194,7 @@ impl DenoWorkspace {
       Arc::new(NullLifecycleScriptsExecutor),
       ConsoleLogReporter,
       NpmInstallerFactoryOptions {
-        cache_setting: if options.cached_only {
+        cache_setting: if options.cached_only.unwrap_or_default() {
           deno_npm_cache::NpmCacheSetting::Only
         } else {
           deno_npm_cache::NpmCacheSetting::Use
