@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use anyhow::bail;
 use deno_cache_dir::file_fetcher::CacheSetting;
 use deno_cache_dir::file_fetcher::NullBlobStore;
 use deno_graph::MediaType;
@@ -366,22 +367,30 @@ impl DenoLoader {
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
     let importer = importer.filter(|v| !v.is_empty());
-    let referrer = match importer {
+    let (specifier, referrer) = match importer {
       Some(referrer)
         if referrer.starts_with("http:")
           || referrer.starts_with("https:")
           || referrer.starts_with("file:") =>
       {
-        Url::parse(&referrer)?
+        (specifier, Url::parse(&referrer)?)
       }
-      Some(referrer) => deno_path_util::url_from_file_path(
-        &sys_traits::impls::wasm_string_to_path(referrer),
-      )?,
+      Some(referrer) => (
+        specifier,
+        deno_path_util::url_from_file_path(
+          &sys_traits::impls::wasm_string_to_path(referrer),
+        )?,
+      ),
       None => {
-        return Ok(
+        let entrypoint =
           parse_entrypoint(specifier, self.workspace_factory.initial_cwd())?
-            .to_string(),
-        );
+            .to_string();
+        (
+          entrypoint,
+          deno_path_util::url_from_file_path(
+            self.workspace_factory.initial_cwd(),
+          )?,
+        )
       }
     };
     let resolved = self.resolver.resolve_with_graph(
@@ -418,9 +427,15 @@ impl DenoLoader {
         MediaType::Wasm,
         &m.source,
       )),
-      Some(Module::Node(node)) => Ok(create_external_repsonse(&node.specifier)),
+      Some(Module::Node(m)) => Ok(create_external_repsonse(&m.specifier)),
+      Some(Module::Npm(_)) => {
+        bail!(
+          "Failed resolving '{}'\n\nResolve the npm: specifier to a file: specifier before providing it to the loader.",
+          url
+        )
+      }
       None if url.scheme() == "node" => Ok(create_external_repsonse(&url)),
-      Some(Module::Npm(_) | Module::External(_)) | None => {
+      Some(Module::External(_)) | None => {
         let file = self.file_fetcher.fetch_bypass_permissions(&url).await?;
         Ok(create_module_response(
           &file.url,
@@ -482,6 +497,7 @@ fn parse_entrypoint(
   if entrypoint.starts_with("jsr:")
     || entrypoint.starts_with("https:")
     || entrypoint.starts_with("file:")
+    || entrypoint.starts_with("npm:")
   {
     Ok(Url::parse(&entrypoint)?)
   } else {
