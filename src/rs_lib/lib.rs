@@ -555,29 +555,26 @@ impl DenoLoader {
         self.cjs_tracker.is_maybe_cjs(specifier, media_type)?
           && parsed_source.compute_is_script()
       };
-      let transpile_options = if self.preserve_jsx
-        && transpile_and_emit_options.transpile.transform_jsx
-      {
+      let transpile_options = if self.preserve_jsx && media_type.is_jsx() {
         Cow::Owned(TranspileOptions {
           transform_jsx: false,
+          precompile_jsx: false,
           ..transpile_and_emit_options.transpile.clone()
         })
       } else {
         Cow::Borrowed(&transpile_and_emit_options.transpile)
       };
-      Ok(Cow::Owned(
-        parsed_source
-          .transpile(
-            &transpile_options,
-            &TranspileModuleOptions {
-              module_kind: Some(ModuleKind::from_is_cjs(is_cjs)),
-            },
-            &transpile_and_emit_options.emit,
-          )?
-          .into_source()
-          .text
-          .into_bytes(),
-      ))
+      let transpiled_source = parsed_source
+        .transpile(
+          &transpile_options,
+          &TranspileModuleOptions {
+            module_kind: Some(ModuleKind::from_is_cjs(is_cjs)),
+          },
+          &transpile_and_emit_options.emit,
+        )?
+        .into_source()
+        .text;
+      Ok(Cow::Owned(transpiled_source.into_bytes()))
     } else {
       Ok(Cow::Borrowed(source.as_bytes()))
     }

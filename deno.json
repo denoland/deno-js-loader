@@ -6,7 +6,8 @@
   },
   "publish": {
     "exclude": [
-      "!./src/lib"
+      "!./src/lib",
+      "tests/"
     ]
   },
   "exports": "./src/mod.ts",

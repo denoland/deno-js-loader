@@ -1,8 +1,8 @@
-import { DenoWorkspace, MediaType, ResolutionMode } from "./mod.ts";
+import { Workspace, MediaType, ResolutionMode } from "./mod.ts";
 import { assert, assertEquals } from "@std/assert";
 
 Deno.test("should resolve and load", async () => {
-  const workspace = new DenoWorkspace({
+  const workspace = new Workspace({
     nodeConditions: undefined, // unsure doesn't error
   });
   const modFileUrl = import.meta.resolve("./mod.ts");
