@@ -12,7 +12,8 @@
   },
   "exports": "./src/mod.ts",
   "exclude": [
-    "./target"
+    "./target",
+    "tests/jsx/testdata"
   ],
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.13"

@@ -5,12 +5,12 @@
  *
  * @example
  * ```ts
- * import { Workspace, ResolutionMode } from "@deno/loader";
+ * import { Workspace, ResolutionMode, type LoadResponse } from "@deno/loader";
  *
  * const workspace = new Workspace({
  *   // optional options
  * });
- * const loader = workspace.createLoader({
+ * const loader = await workspace.createLoader({
  *   entrypoints: ["./mod.ts"]
  * });
  * const resolvedUrl = loader.resolve(
@@ -18,10 +18,17 @@
  *   "https://deno.land/mod.ts", // referrer
  *   ResolutionMode.Import,
  * );
- * const loadedModule = await loader.load(resolvedUrl);
- * console.log(loadedModule.specifier);
- * console.log(loadedModule.code);
- * console.log(loadedModule.mediaType);
+ * const response = await loader.load(resolvedUrl);
+ * if (response.kind === "module") {
+ *   console.log(response.specifier);
+ *   console.log(response.code);
+ *   console.log(response.mediaType);
+ * } else if (response.kind === "external") {
+ *   console.log(response.specifier)
+ * } else {
+ *   const _assertNever = response;
+ *   throw new Error(`Unhandled kind: ${(response as LoadResponse).kind}`);
+ * }
  * ```
  * @module
  */
