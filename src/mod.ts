@@ -5,12 +5,12 @@
  *
  * @example
  * ```ts
- * import { DenoWorkspace, ResolutionMode } from "@deno/loader";
+ * import { Workspace, ResolutionMode, type LoadResponse } from "@deno/loader";
  *
- * const workspace = new DenoWorkspace({
+ * const workspace = new Workspace({
  *   // optional options
  * });
- * const loader = workspace.createLoader({
+ * const loader = await workspace.createLoader({
  *   entrypoints: ["./mod.ts"]
  * });
  * const resolvedUrl = loader.resolve(
@@ -18,10 +18,17 @@
  *   "https://deno.land/mod.ts", // referrer
  *   ResolutionMode.Import,
  * );
- * const loadedModule = await loader.load(resolvedUrl);
- * console.log(loadedModule.specifier);
- * console.log(loadedModule.code);
- * console.log(loadedModule.mediaType);
+ * const response = await loader.load(resolvedUrl);
+ * if (response.kind === "module") {
+ *   console.log(response.specifier);
+ *   console.log(response.code);
+ *   console.log(response.mediaType);
+ * } else if (response.kind === "external") {
+ *   console.log(response.specifier)
+ * } else {
+ *   const _assertNever = response;
+ *   throw new Error(`Unhandled kind: ${(response as LoadResponse).kind}`);
+ * }
  * ```
  * @module
  */
@@ -32,7 +39,7 @@ import {
 } from "./lib/rs_lib.js";
 
 /** Options for creating a workspace. */
-export interface DenoWorkspaceOptions {
+export interface WorkspaceOptions {
   /** Do not do config file discovery. */
   noConfig?: boolean;
   /** Do not respect the lockfile. */
@@ -51,6 +58,10 @@ export interface DenoWorkspaceOptions {
 export interface LoaderOptions {
   /** Entrypoints to create the loader for. */
   entrypoints: string[];
+  /** Whether to preserve JSX syntax in the loaded output. */
+  preserveJsx?: boolean;
+  /** Skip transpiling TypeScript and JSX. */
+  noTranspile?: boolean;
 }
 
 /** File type. */
@@ -120,12 +131,12 @@ export enum ResolutionMode {
 }
 
 /** Resolves the workspace. */
-export class DenoWorkspace implements Disposable {
+export class Workspace implements Disposable {
   #inner: WasmWorkspace;
   #debug: boolean;
 
   /** Creates a `DenoWorkspace` with the provided options. */
-  constructor(options: DenoWorkspaceOptions = {}) {
+  constructor(options: WorkspaceOptions = {}) {
     this.#inner = new WasmWorkspace(options);
     this.#debug = options.debug ?? false;
   }
@@ -135,7 +146,7 @@ export class DenoWorkspace implements Disposable {
   }
 
   /** Creates a loader that uses this this workspace. */
-  async createLoader(options: LoaderOptions): Promise<DenoLoader> {
+  async createLoader(options: LoaderOptions): Promise<Loader> {
     if (this.#debug) {
       console.error(
         `Creating loader for entrypoints:\n  ${
@@ -143,14 +154,14 @@ export class DenoWorkspace implements Disposable {
         }`,
       );
     }
-    const wasmLoader = await this.#inner.create_loader();
+    const wasmLoader = await this.#inner.create_loader(options);
     await wasmLoader.add_roots(options.entrypoints);
-    return new DenoLoader(wasmLoader, this.#debug);
+    return new Loader(wasmLoader, this.#debug);
   }
 }
 
 /** A loader for resolving and loading urls. */
-export class DenoLoader implements Disposable {
+export class Loader implements Disposable {
   #inner: WasmLoader;
   #debug: boolean;
 

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "jsx": "precompile",
+    "jsxImportSource": "react"
+  },
+  "lock": false,
+  "imports": {
+    "react": "npm:react@^19.1.0"
+  }
+}

@@ -1,8 +1,8 @@
-import { DenoWorkspace, MediaType, ResolutionMode } from "./mod.ts";
+import { MediaType, ResolutionMode, Workspace } from "./mod.ts";
 import { assert, assertEquals } from "@std/assert";
 
 Deno.test("should resolve and load", async () => {
-  const workspace = new DenoWorkspace({
+  const workspace = new Workspace({
     nodeConditions: undefined, // unsure doesn't error
   });
   const modFileUrl = import.meta.resolve("./mod.ts");
@@ -17,8 +17,9 @@ Deno.test("should resolve and load", async () => {
   assertEquals(resolvedUrl, import.meta.url);
   {
     const loadResponse = await loader.load(import.meta.url);
-    if (loadResponse.kind !== "module")
+    if (loadResponse.kind !== "module") {
       throw new Error("Fail");
+    }
     assertEquals(typeof loadResponse.specifier, "string");
     assert(loadResponse.code instanceof Uint8Array);
     assertEquals(loadResponse.mediaType, MediaType.TypeScript);
@@ -26,8 +27,9 @@ Deno.test("should resolve and load", async () => {
   // node: specifier
   {
     const loadResponse = await loader.load("node:events");
-    if (loadResponse.kind !== "external")
+    if (loadResponse.kind !== "external") {
       throw new Error("Fail");
+    }
     assertEquals(typeof loadResponse.specifier, "string");
     assertEquals(loadResponse.specifier, "node:events");
   }
