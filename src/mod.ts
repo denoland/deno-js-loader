@@ -51,6 +51,10 @@ export interface DenoWorkspaceOptions {
 export interface LoaderOptions {
   /** Entrypoints to create the loader for. */
   entrypoints: string[];
+  /** Whether to preserve JSX syntax in the loaded output. */
+  preserveJsx?: boolean;
+  /** Skip transpiling TypeScript and JSX. */
+  noTranspile?: boolean;
 }
 
 /** File type. */
@@ -143,7 +147,7 @@ export class DenoWorkspace implements Disposable {
         }`,
       );
     }
-    const wasmLoader = await this.#inner.create_loader();
+    const wasmLoader = await this.#inner.create_loader(options);
     await wasmLoader.add_roots(options.entrypoints);
     return new DenoLoader(wasmLoader, this.#debug);
   }
