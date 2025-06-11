@@ -24,6 +24,8 @@ jobs:
           deno-version: canary
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/rs_lib
 
       - name: build
         run: deno task wasmbuild
@@ -53,6 +55,8 @@ jobs:
         with:
           deno-version: canary
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/rs_lib
       - name: build
         run: deno task wasmbuild
       - name: Publish to JSR on tag
