@@ -24,7 +24,7 @@ jobs:
           deno-version: canary
 
       - name: build
-        run: deno task build
+        run: deno task wasmbuild
 
       - name: fmt
         run: deno fmt --check
@@ -51,6 +51,6 @@ jobs:
         with:
           deno-version: canary
       - name: build
-        run: deno task build
+        run: deno task wasmbuild
       - name: Publish to JSR on tag
         run: deno run -A jsr:@david/publish-on-tag@0.2.0
