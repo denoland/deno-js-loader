@@ -566,7 +566,15 @@ impl DenoLoader {
         Cow::Borrowed(&transpile_and_emit_options.transpile)
       };
       let emit_options = EmitOptions {
-        source_map_base: Some(self.workspace_factory.workspace_directory()?.workspace.root_dir().as_ref().clone()),
+        source_map_base: Some(
+          self
+            .workspace_factory
+            .workspace_directory()?
+            .workspace
+            .root_dir()
+            .as_ref()
+            .clone(),
+        ),
         ..transpile_and_emit_options.emit.clone()
       };
       let transpiled_source = parsed_source
@@ -632,6 +640,7 @@ fn parse_entrypoint(
 ) -> Result<Url, anyhow::Error> {
   if entrypoint.starts_with("jsr:")
     || entrypoint.starts_with("https:")
+    || entrypoint.starts_with("http:")
     || entrypoint.starts_with("file:")
     || entrypoint.starts_with("npm:")
   {
