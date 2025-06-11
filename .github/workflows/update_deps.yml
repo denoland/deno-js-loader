@@ -1,0 +1,43 @@
+name: check_updates
+
+on:
+  workflow_dispatch:
+  # run this monday to thursday
+  schedule:
+    - cron: "0 11 * * 1-4"
+
+jobs:
+  build:
+    name: check updates
+    if: github.repository == 'denoland/deno-js-loader'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DENOBOT_PAT }}
+
+      - uses: denoland/setup-deno@v2
+
+      - name: Run script
+        env:
+          GITHUB_TOKEN: ${{ secrets.DENOBOT_PAT }}
+          GH_WORKFLOW_ACTOR: ${{ github.actor }}
+        run: |
+          git config user.email "denobot@users.noreply.github.com"
+          git config user.name "denobot"
+          deno run -A ./scripts/update-deps.ts
+          deno task wasmbuild
+          deno test -A
+          deno run -A ./scripts/commit.ts
+
+  # This is necessary to prevent GH automatically disabling this workflow after 60 days.
+  workflow-keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@f72ff1a1336129f29bf0166c0fd0ca6cf1bcb38c
