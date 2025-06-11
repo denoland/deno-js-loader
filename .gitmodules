@@ -1,0 +1,4 @@
+[submodule "deno"]
+	path = deno
+	url = https://github.com/denoland/deno
+	shallow = true
