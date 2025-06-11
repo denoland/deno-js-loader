@@ -183,8 +183,9 @@ impl DenoWorkspace {
     let resolver_factory = Arc::new(ResolverFactory::new(
       workspace_factory.clone(),
       ResolverFactoryOptions {
+        // todo: make this configurable
         is_cjs_resolution_mode:
-          deno_resolver::cjs::IsCjsResolutionMode::ImplicitTypeCommonJs,
+          deno_resolver::cjs::IsCjsResolutionMode::ExplicitTypeCommonJs,
         unstable_sloppy_imports: true,
         npm_system_info: npm_system_info()?,
         node_resolver_options: NodeResolverOptions {
