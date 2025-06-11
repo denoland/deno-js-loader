@@ -6,10 +6,12 @@ use deno_cache_dir::file_fetcher::SendResponse;
 use deno_cache_dir::file_fetcher::StatusCode;
 use deno_error::JsErrorBox;
 use deno_npm_cache::NpmCacheHttpClientResponse;
+use js_sys::Array;
 use js_sys::Object;
 use js_sys::Reflect;
 use serde::Deserialize;
 use url::Url;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -200,20 +202,27 @@ fn parse_response(js_value: JsValue) -> Result<Response, JsValue> {
 
 fn response_headers_to_headermap(headers: JsValue) -> HeaderMap {
   let mut map = HeaderMap::new();
-
-  if !headers.is_object() {
+  let entries_fn = Reflect::get(&headers, &JsValue::from_str("entries"));
+  let Ok(entries_fn) = entries_fn else {
     return map;
-  }
+  };
 
-  let obj = Object::from(headers);
-  let entries = Object::entries(&obj);
+  let entries_iter = js_sys::Function::from(entries_fn)
+    .call0(&headers)
+    .ok()
+    .and_then(|iter| iter.dyn_into::<js_sys::Iterator>().ok());
 
-  for i in 0..entries.length() {
-    let entry = entries.get(i);
-    if !entry.is_object() {
-      continue;
+  let Some(iter) = entries_iter else {
+    return map;
+  };
+
+  while let Ok(next) = iter.next() {
+    if next.done() {
+      break;
     }
-    let pair = js_sys::Array::from(&entry);
+
+    let val = next.value();
+    let pair = Array::from(&val);
     if pair.length() != 2 {
       continue;
     }
