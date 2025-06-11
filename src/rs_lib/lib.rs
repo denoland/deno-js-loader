@@ -284,10 +284,11 @@ impl DenoWorkspace {
       resolver_factory: self.resolver_factory.clone(),
       npm_installer_factory: self.npm_installer_factory.clone(),
       tsconfig_resolver: self.workspace_factory.tsconfig_resolver()?.clone(),
-      capturing_analyzer: options
-        .no_transpile
-        .unwrap_or(false)
-        .then(|| Default::default()),
+      capturing_analyzer: if options.no_transpile.unwrap_or(false) {
+        None
+      } else {
+        Some(Default::default())
+      },
       task_queue: Default::default(),
       preserve_jsx: options.preserve_jsx.unwrap_or(false),
       graph: deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly),
