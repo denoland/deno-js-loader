@@ -3,7 +3,8 @@ import $ from "@david/dax";
 const rootDir = $.path(import.meta.dirname!).parentOrThrow();
 const denoDir = rootDir.join("deno");
 
-const hasGitChanges = (await $`git status --porcelain`.text()).trim().length > 0;
+const hasGitChanges =
+  (await $`git status --porcelain`.text()).trim().length > 0;
 if (!hasGitChanges) {
   $.log("Had no git changes. Exiting.");
   Deno.exit(0);
