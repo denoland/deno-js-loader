@@ -16,7 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        submodules: true
+        with:
+          submodules: true
 
       - uses: denoland/setup-deno@v2
         with:
@@ -44,7 +45,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-        submodules: true
+        with:
+          submodules: true
       - uses: denoland/setup-deno@v2
         with:
           deno-version: canary
