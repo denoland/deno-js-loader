@@ -7,6 +7,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::bail;
+use deno_ast::EmitOptions;
 use deno_ast::ModuleKind;
 use deno_ast::TranspileModuleOptions;
 use deno_ast::TranspileOptions;
@@ -564,13 +565,17 @@ impl DenoLoader {
       } else {
         Cow::Borrowed(&transpile_and_emit_options.transpile)
       };
+      let emit_options = EmitOptions {
+        source_map_base: Some(self.workspace_factory.workspace_directory()?.workspace.root_dir().as_ref().clone()),
+        ..transpile_and_emit_options.emit.clone()
+      };
       let transpiled_source = parsed_source
         .transpile(
           &transpile_options,
           &TranspileModuleOptions {
             module_kind: Some(ModuleKind::from_is_cjs(is_cjs)),
           },
-          &transpile_and_emit_options.emit,
+          &emit_options,
         )?
         .into_source()
         .text;
