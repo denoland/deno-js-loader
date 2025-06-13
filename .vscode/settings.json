@@ -1,7 +1,16 @@
 {
+  "editor.formatOnSave": true,
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
-    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
   },
   // generally I wouldn't commit this file to source control, but
   // this setting is necessary in order to get this repo working
