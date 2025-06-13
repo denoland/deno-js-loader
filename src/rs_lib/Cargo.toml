@@ -19,7 +19,7 @@ wasm-bindgen-futures = "=0.4.50"
 async-trait = "0.1.73"
 deno_error = "=0.6.1"
 deno_path_util = "=0.4.0"
-deno_semver = "=0.8.0"
+deno_semver = "=0.8.1"
 url = "2.5"
 
 [dependencies.deno_ast]
@@ -31,7 +31,7 @@ version = "=0.22.2"
 features = ["sync"]
 
 [dependencies.deno_config]
-version = "=0.56.0"
+version = "=0.57.0"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]

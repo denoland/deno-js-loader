@@ -1,0 +1,12 @@
+{
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  // generally I wouldn't commit this file to source control, but
+  // this setting is necessary in order to get this repo working
+  // in vscode
+  "rust-analyzer.linkedProjects": [
+    "./src/rs_lib/Cargo.toml"
+  ]
+}
