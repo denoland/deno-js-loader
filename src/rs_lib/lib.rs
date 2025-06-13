@@ -190,6 +190,9 @@ impl DenoWorkspace {
         unstable_sloppy_imports: true,
         npm_system_info: npm_system_info()?,
         node_resolver_options: NodeResolverOptions {
+          // todo: support these
+          prefer_browser_field: false,
+          bundle_mode: false,
           conditions: NodeConditionOptions {
             conditions: options
               .node_conditions
