@@ -1,3 +1,4 @@
+import { assert } from "node:console";
 import {
   assertResponseText,
   createLoader,
@@ -29,6 +30,14 @@ const $$_tpl_1 = [
 console.log(_jsxTemplate($$_tpl_1));
 ${mainJsxSourceMappingURL}`,
   );
+
+  // resolves jsx-dev
+  const jsx = loader.resolve(
+    "react/jsx-dev-runtime",
+    mainTsx,
+    ResolutionMode.Import,
+  );
+  assert(jsx.startsWith("file:"));
 
   {
     const newLoader = await workspace.createLoader({

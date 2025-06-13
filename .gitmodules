@@ -1,3 +1,6 @@
+# We're using a submodule instead of a git dependency because cargo errors
+# on Windows when installing the Deno repo due to the submodules within
+# the Deno repo due to long paths
 [submodule "deno"]
 	path = deno
 	url = https://github.com/denoland/deno

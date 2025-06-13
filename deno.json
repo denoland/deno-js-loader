@@ -16,7 +16,6 @@
   },
   "exports": "./src/mod.ts",
   "exclude": [
-    ".vscode",
     "deno",
     "src/rs_lib/target",
     "target",
