@@ -32,7 +32,11 @@ ${mainJsxSourceMappingURL}`,
   );
 
   // resolves jsx-dev
-  const jsx = loader.resolve("react/jsx-dev-runtime", mainTsx, ResolutionMode.Import);
+  const jsx = loader.resolve(
+    "react/jsx-dev-runtime",
+    mainTsx,
+    ResolutionMode.Import,
+  );
   assert(jsx.startsWith("file:"));
 
   {
