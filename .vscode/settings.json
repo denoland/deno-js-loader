@@ -1,7 +1,7 @@
 {
   "editor.formatOnSave": true,
   "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
