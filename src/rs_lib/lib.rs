@@ -38,6 +38,7 @@ use deno_resolver::file_fetcher::DenoGraphLoaderOptions;
 use deno_resolver::file_fetcher::PermissionedFileFetcher;
 use deno_resolver::file_fetcher::PermissionedFileFetcherOptions;
 use deno_resolver::graph::DefaultDenoResolverRc;
+use deno_resolver::graph::ResolveWithGraphOptions;
 use deno_resolver::npm::DenoInNpmPackageChecker;
 use deno_resolver::workspace::ScopedJsxImportSourceConfig;
 use deno_semver::SmallStackString;
@@ -456,8 +457,11 @@ impl DenoLoader {
       &specifier,
       &referrer,
       deno_graph::Position::zeroed(),
-      resolution_mode,
-      node_resolver::NodeResolutionKind::Execution,
+      ResolveWithGraphOptions {
+        mode: resolution_mode,
+        kind: node_resolver::NodeResolutionKind::Execution,
+        maintain_npm_specifiers: false,
+      },
     )?;
     Ok(resolved.to_string())
   }
