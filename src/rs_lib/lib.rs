@@ -16,6 +16,7 @@ use deno_cache_dir::file_fetcher::NullBlobStore;
 use deno_graph::MediaType;
 use deno_graph::Module;
 use deno_graph::ModuleGraph;
+use deno_graph::Position;
 use deno_graph::analysis::ModuleAnalyzer;
 use deno_graph::ast::DefaultModuleAnalyzer;
 use deno_graph::ast::EsParser;
@@ -339,10 +340,9 @@ impl DenoLoader {
     &mut self,
     roots: Vec<String>,
   ) -> Result<(), anyhow::Error> {
-    let cwd = self.workspace_factory.initial_cwd();
     let roots = roots
       .into_iter()
-      .map(|e| parse_entrypoint(e, &cwd))
+      .map(|e| self.resolve_entrypoint(e))
       .collect::<Result<Vec<_>, _>>()?;
     let npm_package_info_provider = self
       .npm_installer_factory
@@ -441,9 +441,7 @@ impl DenoLoader {
         )?,
       ),
       None => {
-        let entrypoint =
-          parse_entrypoint(specifier, self.workspace_factory.initial_cwd())?
-            .to_string();
+        let entrypoint = self.resolve_entrypoint(specifier)?.to_string();
         (
           entrypoint,
           deno_path_util::url_from_file_path(
@@ -599,6 +597,26 @@ impl DenoLoader {
       Ok(Cow::Borrowed(source.as_bytes()))
     }
   }
+
+  fn resolve_entrypoint(
+    &self,
+    specifier: String,
+  ) -> Result<Url, anyhow::Error> {
+    let cwd = self.workspace_factory.initial_cwd();
+    if specifier.contains('\\') {
+      return Ok(deno_path_util::url_from_file_path(&resolve_absolute_path(
+        specifier, cwd,
+      ))?);
+    }
+    let referrer = deno_path_util::url_from_directory_path(cwd)?;
+    Ok(self.resolver.resolve(
+      &specifier,
+      &referrer,
+      Position::zeroed(),
+      node_resolver::ResolutionMode::Import,
+      node_resolver::NodeResolutionKind::Execution,
+    )?)
+  }
 }
 
 fn create_module_response(
@@ -639,24 +657,6 @@ fn create_external_repsonse(url: &Url) -> JsValue {
   js_sys::Reflect::set(&obj, &JsValue::from_str("specifier"), &specifier)
     .unwrap();
   obj.into()
-}
-
-fn parse_entrypoint(
-  entrypoint: String,
-  cwd: &Path,
-) -> Result<Url, anyhow::Error> {
-  if entrypoint.starts_with("jsr:")
-    || entrypoint.starts_with("https:")
-    || entrypoint.starts_with("http:")
-    || entrypoint.starts_with("file:")
-    || entrypoint.starts_with("npm:")
-  {
-    Ok(Url::parse(&entrypoint)?)
-  } else {
-    Ok(deno_path_util::url_from_file_path(&resolve_absolute_path(
-      entrypoint, cwd,
-    ))?)
-  }
 }
 
 fn resolve_absolute_path(path: String, cwd: &Path) -> PathBuf {

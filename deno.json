@@ -19,7 +19,7 @@
     "deno",
     "src/rs_lib/target",
     "target",
-    "tests/jsx/testdata"
+    "tests/**/testdata"
   ],
   "imports": {
     "@david/dax": "jsr:@david/dax@^0.43.2",

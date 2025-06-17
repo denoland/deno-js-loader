@@ -1,9 +1,9 @@
-import { assert } from "node:console";
 import {
   assertResponseText,
   createLoader,
   ResolutionMode,
 } from "../helpers.ts";
+import { assert } from "@std/assert";
 
 Deno.test("loads jsx transpiled", async () => {
   const mainJsx = import.meta.dirname + "/testdata/main.jsx";
