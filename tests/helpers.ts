@@ -21,8 +21,19 @@ export async function createLoader(
   };
 }
 
-export function assertResponseText(response: LoadResponse, text: string) {
+export function assertResponseText(
+  response: LoadResponse,
+  text: string,
+  opts?: { skipSourceMap?: boolean },
+) {
   assertEquals(response.kind, "module");
   const moduleResponse = response as ModuleLoadResponse;
-  assertEquals(new TextDecoder().decode(moduleResponse.code), text);
+  let actualText = new TextDecoder().decode(moduleResponse.code);
+  if (opts?.skipSourceMap) {
+    actualText = actualText.replace(
+      /\/\/# sourceMappingURL=.*$/,
+      "",
+    );
+  }
+  assertEquals(actualText, text);
 }
