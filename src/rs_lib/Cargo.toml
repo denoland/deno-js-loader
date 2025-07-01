@@ -27,7 +27,7 @@ version = "=0.48.0"
 features = ["transpiling"]
 
 [dependencies.deno_cache_dir]
-version = "=0.22.2"
+version = "=0.23.0"
 features = ["sync"]
 
 [dependencies.deno_config]
@@ -35,7 +35,7 @@ path = "../../deno/libs/config"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]
-version = "=0.95.1"
+version = "=0.96.2"
 features = ["swc"]
 default-features = false
 

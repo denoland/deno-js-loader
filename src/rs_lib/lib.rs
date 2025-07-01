@@ -27,7 +27,8 @@ use deno_npm_installer::NpmInstallerFactoryOptions;
 use deno_npm_installer::Reporter;
 use deno_npm_installer::lifecycle_scripts::NullLifecycleScriptsExecutor;
 use deno_resolver::cjs::CjsTrackerRc;
-use deno_resolver::deno_json::TsConfigResolverRc;
+use deno_resolver::deno_json::CompilerOptionsResolver;
+use deno_resolver::deno_json::JsxImportSourceConfigResolver;
 use deno_resolver::factory::ConfigDiscoveryOption;
 use deno_resolver::factory::NpmSystemInfo;
 use deno_resolver::factory::ResolverFactory;
@@ -41,7 +42,6 @@ use deno_resolver::file_fetcher::PermissionedFileFetcherOptions;
 use deno_resolver::graph::DefaultDenoResolverRc;
 use deno_resolver::graph::ResolveWithGraphOptions;
 use deno_resolver::npm::DenoInNpmPackageChecker;
-use deno_resolver::workspace::ScopedJsxImportSourceConfig;
 use deno_semver::SmallStackString;
 use js_sys::Object;
 use js_sys::Uint8Array;
@@ -285,12 +285,15 @@ impl DenoWorkspace {
     ));
     Ok(DenoLoader {
       cjs_tracker: self.resolver_factory.cjs_tracker()?.clone(),
+      compiler_options_resolver: self
+        .resolver_factory
+        .compiler_options_resolver()?
+        .clone(),
       file_fetcher,
       resolver: self.resolver_factory.deno_resolver().await?.clone(),
       workspace_factory: self.workspace_factory.clone(),
       resolver_factory: self.resolver_factory.clone(),
       npm_installer_factory: self.npm_installer_factory.clone(),
-      tsconfig_resolver: self.workspace_factory.tsconfig_resolver()?.clone(),
       capturing_analyzer: if options.no_transpile.unwrap_or(false) {
         None
       } else {
@@ -306,13 +309,13 @@ impl DenoWorkspace {
 #[wasm_bindgen]
 pub struct DenoLoader {
   cjs_tracker: CjsTrackerRc<DenoInNpmPackageChecker, RealSys>,
+  compiler_options_resolver: Arc<CompilerOptionsResolver>,
   resolver: DefaultDenoResolverRc<RealSys>,
   file_fetcher:
     Arc<PermissionedFileFetcher<NullBlobStore, RealSys, WasmHttpClient>>,
   npm_installer_factory:
     Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
-  tsconfig_resolver: TsConfigResolverRc<RealSys>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
   graph: ModuleGraph,
   capturing_analyzer: Option<deno_graph::ast::CapturingModuleAnalyzer>,
@@ -351,9 +354,10 @@ impl DenoLoader {
       .workspace_factory
       .maybe_lockfile(npm_package_info_provider)
       .await?;
-    let jsx_config = ScopedJsxImportSourceConfig::from_workspace_dir(
-      self.workspace_factory.workspace_directory()?,
-    )?;
+    let jsx_config =
+      JsxImportSourceConfigResolver::from_compiler_options_resolver(
+        &self.compiler_options_resolver,
+      )?;
 
     let graph_resolver = self
       .resolver
@@ -397,6 +401,8 @@ impl DenoLoader {
           npm_resolver: Some(npm_resolver.as_ref()),
           reporter: None,
           resolver: Some(&graph_resolver),
+          unstable_bytes_imports: true,
+          unstable_text_imports: true,
         },
       )
       .await;
@@ -478,14 +484,14 @@ impl DenoLoader {
         &self.maybe_transpile(
           &m.specifier,
           m.media_type,
-          &m.source,
+          &m.source.text,
           Some(m.is_script),
         )?,
       )),
       Some(Module::Json(m)) => Ok(create_module_response(
         &m.specifier,
         MediaType::Json,
-        m.source.as_bytes(),
+        m.source.text.as_bytes(),
       )),
       Some(Module::Wasm(m)) => Ok(create_module_response(
         &m.specifier,
@@ -549,8 +555,9 @@ impl DenoLoader {
         })?;
       capturing_analyzer.remove_parsed_source(specifier); // remove from memory
       let transpile_and_emit_options = self
-        .tsconfig_resolver
-        .transpile_and_emit_options(specifier)?;
+        .compiler_options_resolver
+        .for_specifier(specifier)
+        .transpile_options()?;
       let is_cjs = if let Some(is_known_script) = is_known_script {
         self.cjs_tracker.is_cjs_with_known_is_script(
           specifier,

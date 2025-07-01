@@ -467,9 +467,9 @@ dependencies = [
 
 [[package]]
 name = "deno_cache_dir"
-version = "0.22.2"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa3c29ca22ddd84eea69891b03f24be7fb9200beb4005ed105f0ad3afcdcd4f2"
+checksum = "7825da0551e670a270a3a20b92f8a0bffeb7d6120fa86b64e5daa969b8dd1a10"
 dependencies = [
  "async-trait",
  "base32",
@@ -546,11 +546,12 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.95.1"
+version = "0.96.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "365b662cfc14021c2994156d5a58b9c91d655879b817715e2d92d8adce5b3c31"
+checksum = "0733ed99295ebeddeb0fb33efa41ccd47ccd9481ab1ebe01f2ea8af80204479e"
 dependencies = [
  "async-trait",
+ "boxed_error",
  "capacity_builder",
  "data-url",
  "deno_ast",
@@ -559,7 +560,6 @@ dependencies = [
  "deno_path_util",
  "deno_semver",
  "deno_unsync",
- "encoding_rs",
  "futures",
  "import_map",
  "indexmap",
@@ -579,9 +579,9 @@ dependencies = [
 
 [[package]]
 name = "deno_lockfile"
-version = "0.30.1"
+version = "0.30.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5a7c1929be2f1558f798c1b75fbc828d8bc62b200435c10601a346f5a8fd67b"
+checksum = "0d4346e56cda020df5da35a3ec2624f09bd77c9f5ed18d903915007825fe9d3f"
 dependencies = [
  "async-trait",
  "deno_semver",
@@ -592,9 +592,9 @@ dependencies = [
 
 [[package]]
 name = "deno_media_type"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d9080fcfcea53bcd6eea1916217bd5611c896f3a0db4c001a859722a1258a47"
+checksum = "f0ec0dada9dc5ac4733b4175d36f6a150b7dd68fab46db35cb1ef00dd7366acb"
 dependencies = [
  "data-url",
  "encoding_rs",
@@ -729,6 +729,7 @@ dependencies = [
  "deno_terminal",
  "deno_unsync",
  "fqdn",
+ "ipnetwork",
  "libc",
  "log",
  "nix",
@@ -774,6 +775,7 @@ dependencies = [
  "http",
  "import_map",
  "indexmap",
+ "jsonc-parser",
  "log",
  "node_resolver",
  "once_cell",
@@ -1350,6 +1352,15 @@ checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.3",
+ "serde",
+]
+
+[[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
  "serde",
 ]
 
