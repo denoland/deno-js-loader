@@ -1,4 +1,9 @@
-import { MediaType, ResolutionMode, Workspace } from "./mod.ts";
+import {
+  MediaType,
+  RequestedModuleType,
+  ResolutionMode,
+  Workspace,
+} from "./mod.ts";
 import { assert, assertEquals } from "@std/assert";
 
 Deno.test("should resolve and load", async () => {
@@ -16,7 +21,10 @@ Deno.test("should resolve and load", async () => {
   );
   assertEquals(resolvedUrl, import.meta.url);
   {
-    const loadResponse = await loader.load(import.meta.url);
+    const loadResponse = await loader.load(
+      import.meta.url,
+      RequestedModuleType.Default,
+    );
     if (loadResponse.kind !== "module") {
       throw new Error("Fail");
     }
@@ -26,7 +34,10 @@ Deno.test("should resolve and load", async () => {
   }
   // node: specifier
   {
-    const loadResponse = await loader.load("node:events");
+    const loadResponse = await loader.load(
+      "node:events",
+      RequestedModuleType.Default,
+    );
     if (loadResponse.kind !== "external") {
       throw new Error("Fail");
     }

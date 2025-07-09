@@ -1,4 +1,8 @@
-import { assertResponseText, createLoader } from "./helpers.ts";
+import {
+  assertResponseText,
+  createLoader,
+  RequestedModuleType,
+} from "./helpers.ts";
 
 Deno.test("loads from http server", async () => {
   await using server = Deno.serve((_request) => {
@@ -14,7 +18,7 @@ Deno.test("loads from http server", async () => {
     entrypoints: [url],
   });
 
-  const response = await loader.load(url);
+  const response = await loader.load(url, RequestedModuleType.Default);
   assertResponseText(
     response,
     `console.log(1);`,

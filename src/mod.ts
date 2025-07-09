@@ -52,16 +52,16 @@ export interface WorkspaceOptions {
   cachedOnly?: boolean;
   /** Enable debug logs. */
   debug?: boolean;
+  /** Whether to preserve JSX syntax in the loaded output. */
+  preserveJsx?: boolean;
+  /** Skip transpiling TypeScript and JSX. */
+  noTranspile?: boolean;
 }
 
 /** Options for loading. */
 export interface LoaderOptions {
   /** Entrypoints to create the loader for. */
   entrypoints: string[];
-  /** Whether to preserve JSX syntax in the loaded output. */
-  preserveJsx?: boolean;
-  /** Skip transpiling TypeScript and JSX. */
-  noTranspile?: boolean;
 }
 
 /** File type. */
@@ -154,10 +154,17 @@ export class Workspace implements Disposable {
         }`,
       );
     }
-    const wasmLoader = await this.#inner.create_loader(options);
+    const wasmLoader = await this.#inner.create_loader();
     await wasmLoader.add_roots(options.entrypoints);
     return new Loader(wasmLoader, this.#debug);
   }
+}
+
+export enum RequestedModuleType {
+  Default = 0,
+  Json = 1,
+  Text = 2,
+  Bytes = 3,
 }
 
 /** A loader for resolving and loading urls. */
@@ -199,11 +206,35 @@ export class Loader implements Disposable {
   }
 
   /** Loads a specifier. */
-  load(specifier: string): Promise<LoadResponse> {
+  load(
+    specifier: string,
+    requestedModuleType: RequestedModuleType,
+  ): Promise<LoadResponse> {
     if (this.#debug) {
-      console.error(`Loading '${specifier}'`);
+      console.error(
+        `Loading '${specifier}' with type '${
+          requestedModuleTypeToString(requestedModuleType) ?? "<default>"
+        }'`,
+      );
     }
-    return this.#inner.load(specifier);
+    return this.#inner.load(specifier, requestedModuleType);
+  }
+}
+
+function requestedModuleTypeToString(moduleType: RequestedModuleType) {
+  switch (moduleType) {
+    case RequestedModuleType.Bytes:
+      return "bytes";
+    case RequestedModuleType.Text:
+      return "text";
+    case RequestedModuleType.Json:
+      return "json";
+    case RequestedModuleType.Default:
+      return undefined;
+    default: {
+      const _never: never = moduleType;
+      return undefined;
+    }
   }
 }
 

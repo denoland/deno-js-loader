@@ -1,6 +1,7 @@
 import {
   assertResponseText,
   createLoader,
+  RequestedModuleType,
   ResolutionMode,
 } from "../helpers.ts";
 
@@ -14,6 +15,7 @@ Deno.test("loads linked entrypoint", async () => {
 
   const response = await loader.load(
     loader.resolve("@denotest/add", undefined, ResolutionMode.Import),
+    RequestedModuleType.Default,
   );
   assertResponseText(
     response,
