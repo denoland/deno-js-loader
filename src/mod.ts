@@ -5,7 +5,7 @@
  *
  * @example
  * ```ts
- * import { Workspace, ResolutionMode, type LoadResponse } from "@deno/loader";
+ * import { Workspace, ResolutionMode, type LoadResponse, RequestedModuleType } from "@deno/loader";
  *
  * const workspace = new Workspace({
  *   // optional options
@@ -18,7 +18,7 @@
  *   "https://deno.land/mod.ts", // referrer
  *   ResolutionMode.Import,
  * );
- * const response = await loader.load(resolvedUrl);
+ * const response = await loader.load(resolvedUrl, RequestedModuleType.Default);
  * if (response.kind === "module") {
  *   console.log(response.specifier);
  *   console.log(response.code);
