@@ -1,34 +1,33 @@
 mod http_client;
 
-use std::borrow::Cow;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::bail;
-use deno_ast::EmitOptions;
 use deno_ast::ModuleKind;
-use deno_ast::TranspileModuleOptions;
-use deno_ast::TranspileOptions;
 use deno_cache_dir::file_fetcher::CacheSetting;
 use deno_cache_dir::file_fetcher::NullBlobStore;
+use deno_error::JsErrorBox;
 use deno_graph::MediaType;
-use deno_graph::Module;
 use deno_graph::ModuleGraph;
 use deno_graph::Position;
 use deno_graph::analysis::ModuleAnalyzer;
-use deno_graph::ast::DefaultModuleAnalyzer;
+use deno_graph::ast::CapturingEsParser;
+use deno_graph::ast::DefaultEsParser;
 use deno_graph::ast::EsParser;
-use deno_graph::ast::ParseOptions;
 use deno_graph::ast::ParsedSourceStore;
 use deno_npm_installer::NpmInstallerFactory;
 use deno_npm_installer::NpmInstallerFactoryOptions;
 use deno_npm_installer::Reporter;
 use deno_npm_installer::lifecycle_scripts::NullLifecycleScriptsExecutor;
+use deno_resolver::cache::ParsedSourceCache;
 use deno_resolver::cjs::CjsTrackerRc;
+use deno_resolver::deno_json::CompilerOptionsOverrides;
 use deno_resolver::deno_json::CompilerOptionsResolver;
 use deno_resolver::deno_json::JsxImportSourceConfigResolver;
+use deno_resolver::emit::Emitter;
 use deno_resolver::factory::ConfigDiscoveryOption;
 use deno_resolver::factory::NpmSystemInfo;
 use deno_resolver::factory::ResolverFactory;
@@ -41,6 +40,9 @@ use deno_resolver::file_fetcher::PermissionedFileFetcher;
 use deno_resolver::file_fetcher::PermissionedFileFetcherOptions;
 use deno_resolver::graph::DefaultDenoResolverRc;
 use deno_resolver::graph::ResolveWithGraphOptions;
+use deno_resolver::loader::PreparedModuleLoader;
+use deno_resolver::loader::PreparedModuleOrAsset;
+use deno_resolver::loader::RequestedModuleType;
 use deno_resolver::npm::DenoInNpmPackageChecker;
 use deno_semver::SmallStackString;
 use js_sys::Object;
@@ -48,6 +50,7 @@ use js_sys::Uint8Array;
 use node_resolver::NodeConditionOptions;
 use node_resolver::NodeResolverOptions;
 use node_resolver::PackageJsonThreadLocalCache;
+use node_resolver::analyze::NodeCodeTranslatorMode;
 use node_resolver::cache::NodeResolutionThreadLocalCache;
 use serde::Deserialize;
 use serde::Serialize;
@@ -103,15 +106,6 @@ pub struct LoadResponse {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LoaderOptions {
-  #[serde(default)]
-  pub no_transpile: Option<bool>,
-  #[serde(default)]
-  pub preserve_jsx: Option<bool>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DenoWorkspaceOptions {
   // make all these optional to support someone providing `undefined`
   #[serde(default)]
@@ -124,6 +118,10 @@ pub struct DenoWorkspaceOptions {
   pub node_conditions: Option<Vec<String>>,
   #[serde(default)]
   pub cached_only: Option<bool>,
+  #[serde(default)]
+  pub preserve_jsx: Option<bool>,
+  #[serde(default)]
+  pub no_transpile: Option<bool>,
 }
 
 #[wasm_bindgen]
@@ -171,11 +169,11 @@ impl DenoWorkspace {
       WorkspaceFactoryOptions {
         additional_config_file_names: &[],
         config_discovery,
-        deno_dir_path_provider: None,
         is_package_manager_subcommand: false,
         frozen_lockfile: None, // provide this via config
         lock_arg: None,        // supports the default only
         lockfile_skip_write: false,
+        maybe_custom_deno_dir_root: None,
         node_modules_dir: None, // provide this via config
         no_lock: options.no_lock.unwrap_or_default(),
         no_npm: false,
@@ -186,6 +184,18 @@ impl DenoWorkspace {
     let resolver_factory = Arc::new(ResolverFactory::new(
       workspace_factory.clone(),
       ResolverFactoryOptions {
+        compiler_options_overrides: CompilerOptionsOverrides {
+          no_transpile: options.no_transpile.unwrap_or(false),
+          source_map_base: Some(
+            workspace_factory
+              .workspace_directory()?
+              .workspace
+              .root_dir()
+              .as_ref()
+              .clone(),
+          ),
+          preserve_jsx: options.preserve_jsx.unwrap_or(false),
+        },
         // todo: make this configurable
         is_cjs_resolution_mode:
           deno_resolver::cjs::IsCjsResolutionMode::ExplicitTypeCommonJs,
@@ -207,6 +217,8 @@ impl DenoWorkspace {
           },
           typescript_version: None,
         },
+        node_analysis_cache: None,
+        node_code_translator_mode: NodeCodeTranslatorMode::Bundling,
         node_resolution_cache: Some(Arc::new(NodeResolutionThreadLocalCache)),
         package_json_cache: Some(Arc::new(PackageJsonThreadLocalCache)),
         package_json_dep_resolution: None,
@@ -249,26 +261,11 @@ impl DenoWorkspace {
     })
   }
 
-  pub async fn create_loader(
-    &self,
-    options: JsValue,
-  ) -> Result<DenoLoader, JsValue> {
-    let options = serde_wasm_bindgen::from_value(options).map_err(|err| {
-      create_js_error(
-        anyhow::anyhow!("{}", err)
-          .context("Failed deserializing loader options."),
-      )
-    })?;
-    self
-      .create_loader_inner(options)
-      .await
-      .map_err(create_js_error)
+  pub async fn create_loader(&self) -> Result<DenoLoader, JsValue> {
+    self.create_loader_inner().await.map_err(create_js_error)
   }
 
-  async fn create_loader_inner(
-    &self,
-    options: LoaderOptions,
-  ) -> Result<DenoLoader, anyhow::Error> {
+  async fn create_loader_inner(&self) -> Result<DenoLoader, anyhow::Error> {
     self
       .npm_installer_factory
       .initialize_npm_resolution_if_managed()
@@ -290,17 +287,17 @@ impl DenoWorkspace {
         .compiler_options_resolver()?
         .clone(),
       file_fetcher,
+      emitter: self.resolver_factory.emitter()?.clone(),
       resolver: self.resolver_factory.deno_resolver().await?.clone(),
       workspace_factory: self.workspace_factory.clone(),
       resolver_factory: self.resolver_factory.clone(),
       npm_installer_factory: self.npm_installer_factory.clone(),
-      capturing_analyzer: if options.no_transpile.unwrap_or(false) {
-        None
-      } else {
-        Some(Default::default())
-      },
+      parsed_source_cache: self.resolver_factory.parsed_source_cache().clone(),
+      prepared_module_loader: self
+        .resolver_factory
+        .prepared_module_loader()?
+        .clone(),
       task_queue: Default::default(),
-      preserve_jsx: options.preserve_jsx.unwrap_or(false),
       graph: deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly),
     })
   }
@@ -313,14 +310,16 @@ pub struct DenoLoader {
   resolver: DefaultDenoResolverRc<RealSys>,
   file_fetcher:
     Arc<PermissionedFileFetcher<NullBlobStore, RealSys, WasmHttpClient>>,
+  emitter: Arc<Emitter<DenoInNpmPackageChecker, RealSys>>,
   npm_installer_factory:
     Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
+  parsed_source_cache: Arc<ParsedSourceCache>,
+  prepared_module_loader:
+    Arc<PreparedModuleLoader<DenoInNpmPackageChecker, RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
   graph: ModuleGraph,
-  capturing_analyzer: Option<deno_graph::ast::CapturingModuleAnalyzer>,
   task_queue: Rc<deno_unsync::TaskQueue>,
-  preserve_jsx: bool,
 }
 
 impl Drop for DenoLoader {
@@ -376,12 +375,10 @@ impl DenoLoader {
     let mut locker = lockfile.as_ref().map(|l| l.as_deno_graph_locker());
     let npm_resolver =
       self.npm_installer_factory.npm_deno_graph_resolver().await?;
-    let module_analyzer = DefaultModuleAnalyzer::default();
-    let module_analyzer = self
-      .capturing_analyzer
-      .as_ref()
-      .map(|a| a as &dyn ModuleAnalyzer)
-      .unwrap_or(&module_analyzer);
+    let module_analyzer = CapturingModuleAnalyzerRef {
+      store: self.parsed_source_cache.as_ref(),
+      parser: &DefaultEsParser,
+    };
     self
       .graph
       .build(
@@ -397,7 +394,7 @@ impl DenoLoader {
           file_system: self.workspace_factory.sys(),
           jsr_url_provider: Default::default(),
           passthrough_jsr_specifiers: false,
-          module_analyzer,
+          module_analyzer: &module_analyzer,
           npm_resolver: Some(npm_resolver.as_ref()),
           reporter: None,
           resolver: Some(&graph_resolver),
@@ -470,139 +467,132 @@ impl DenoLoader {
     Ok(resolved.to_string())
   }
 
-  pub async fn load(&self, url: String) -> Result<JsValue, JsValue> {
-    self.load_inner(url).await.map_err(create_js_error)
+  pub async fn load(
+    &self,
+    url: String,
+    requested_module_type: u8,
+  ) -> Result<JsValue, JsValue> {
+    let requested_module_type = match requested_module_type {
+      0 => RequestedModuleType::None,
+      1 => RequestedModuleType::Json,
+      2 => RequestedModuleType::Text,
+      3 => RequestedModuleType::Bytes,
+      _ => {
+        return Err(create_js_error(anyhow::anyhow!(
+          "Invalid requested module type: {}",
+          requested_module_type
+        )));
+      }
+    };
+    self
+      .load_inner(url, &requested_module_type)
+      .await
+      .map_err(create_js_error)
   }
 
-  async fn load_inner(&self, url: String) -> Result<JsValue, anyhow::Error> {
+  async fn load_inner(
+    &self,
+    url: String,
+    requested_module_type: &RequestedModuleType<'_>,
+  ) -> Result<JsValue, anyhow::Error> {
     let url = Url::parse(&url)?;
 
-    match self.graph.get(&url) {
-      Some(Module::Js(m)) => Ok(create_module_response(
-        &m.specifier,
-        m.media_type,
-        &self.maybe_transpile(
+    if url.scheme() == "node" {
+      return Ok(create_external_repsonse(&url));
+    }
+
+    let maybe_prepared_module = self
+      .prepared_module_loader
+      .load_prepared_module(&self.graph, &url, requested_module_type)
+      .await?;
+
+    match maybe_prepared_module {
+      Some(PreparedModuleOrAsset::Module(m)) => {
+        self.parsed_source_cache.free(&m.specifier);
+        Ok(create_module_response(
           &m.specifier,
           m.media_type,
-          &m.source.text,
-          Some(m.is_script),
-        )?,
-      )),
-      Some(Module::Json(m)) => Ok(create_module_response(
-        &m.specifier,
-        MediaType::Json,
-        m.source.text.as_bytes(),
-      )),
-      Some(Module::Wasm(m)) => Ok(create_module_response(
-        &m.specifier,
-        MediaType::Wasm,
-        &m.source,
-      )),
-      Some(Module::Node(m)) => Ok(create_external_repsonse(&m.specifier)),
-      Some(Module::Npm(_)) => {
-        bail!(
-          "Failed resolving '{}'\n\nResolve the npm: specifier to a file: specifier before providing it to the loader.",
-          url
-        )
+          m.source.as_bytes(),
+        ))
       }
-      None if url.scheme() == "node" => Ok(create_external_repsonse(&url)),
-      Some(Module::External(_)) | None => {
+      Some(PreparedModuleOrAsset::ExternalAsset { specifier }) => {
+        let file = self
+          .file_fetcher
+          .fetch_bypass_permissions(specifier)
+          .await?;
+        let media_type = MediaType::from_specifier_and_headers(
+          &file.url,
+          file.maybe_headers.as_ref(),
+        );
+        Ok(create_module_response(&file.url, media_type, &file.source))
+      }
+      None => {
+        if url.scheme() == "npm" {
+          bail!(
+            "Failed resolving '{}'\n\nResolve the npm: specifier to a file: specifier before providing it to the loader.",
+            url
+          )
+        }
         let file = self.file_fetcher.fetch_bypass_permissions(&url).await?;
         let media_type = MediaType::from_specifier_and_headers(
           &url,
           file.maybe_headers.as_ref(),
         );
-
-        if media_type.is_emittable() {
-          let str = String::from_utf8_lossy(&file.source);
-          let value = str.into();
-          let source =
-            self.maybe_transpile(&file.url, media_type, &value, None)?;
-          Ok(create_module_response(&file.url, media_type, &source))
-        } else {
-          Ok(create_module_response(&file.url, media_type, &file.source))
+        match requested_module_type {
+          RequestedModuleType::Text | RequestedModuleType::Bytes => {
+            Ok(create_module_response(&file.url, media_type, &file.source))
+          }
+          RequestedModuleType::Json
+          | RequestedModuleType::None
+          | RequestedModuleType::Other(_) => {
+            if media_type.is_emittable() {
+              let str = String::from_utf8_lossy(&file.source);
+              let value = str.into();
+              let source = self
+                .maybe_transpile(&file.url, media_type, &value, None)
+                .await?;
+              Ok(create_module_response(
+                &file.url,
+                media_type,
+                source.as_bytes(),
+              ))
+            } else {
+              Ok(create_module_response(&file.url, media_type, &file.source))
+            }
+          }
         }
       }
     }
   }
 
-  fn should_emit(&self, media_type: MediaType) -> bool {
-    if media_type == MediaType::Jsx && self.preserve_jsx {
-      false
-    } else {
-      media_type.is_emittable()
-    }
-  }
-
-  fn maybe_transpile<'a>(
+  async fn maybe_transpile<'a>(
     &self,
     specifier: &Url,
     media_type: MediaType,
     source: &'a Arc<str>,
     is_known_script: Option<bool>,
-  ) -> Result<Cow<'a, [u8]>, anyhow::Error> {
-    let Some(capturing_analyzer) = &self.capturing_analyzer else {
-      return Ok(Cow::Borrowed(source.as_bytes()));
-    };
-    if self.should_emit(media_type) {
-      let parsed_source = capturing_analyzer
-        .as_capturing_parser()
-        .parse_program(ParseOptions {
-          specifier,
-          source: source.clone(),
-          media_type,
-          scope_analysis: false,
-        })?;
-      capturing_analyzer.remove_parsed_source(specifier); // remove from memory
-      let transpile_and_emit_options = self
-        .compiler_options_resolver
-        .for_specifier(specifier)
-        .transpile_options()?;
-      let is_cjs = if let Some(is_known_script) = is_known_script {
-        self.cjs_tracker.is_cjs_with_known_is_script(
-          specifier,
-          media_type,
-          is_known_script,
-        )?
-      } else {
-        self.cjs_tracker.is_maybe_cjs(specifier, media_type)?
-          && parsed_source.compute_is_script()
-      };
-      let transpile_options = if self.preserve_jsx && media_type.is_jsx() {
-        Cow::Owned(TranspileOptions {
-          transform_jsx: false,
-          precompile_jsx: false,
-          ..transpile_and_emit_options.transpile.clone()
-        })
-      } else {
-        Cow::Borrowed(&transpile_and_emit_options.transpile)
-      };
-      let emit_options = EmitOptions {
-        source_map_base: Some(
-          self
-            .workspace_factory
-            .workspace_directory()?
-            .workspace
-            .root_dir()
-            .as_ref()
-            .clone(),
-        ),
-        ..transpile_and_emit_options.emit.clone()
-      };
-      let transpiled_source = parsed_source
-        .transpile(
-          &transpile_options,
-          &TranspileModuleOptions {
-            module_kind: Some(ModuleKind::from_is_cjs(is_cjs)),
-          },
-          &emit_options,
-        )?
-        .into_source()
-        .text;
-      Ok(Cow::Owned(transpiled_source.into_bytes()))
+  ) -> Result<Arc<str>, anyhow::Error> {
+    let parsed_source = self.parsed_source_cache.get_matching_parsed_source(
+      specifier,
+      media_type,
+      source.clone(),
+    )?;
+    let is_cjs = if let Some(is_known_script) = is_known_script {
+      self.cjs_tracker.is_cjs_with_known_is_script(
+        specifier,
+        media_type,
+        is_known_script,
+      )?
     } else {
-      Ok(Cow::Borrowed(source.as_bytes()))
-    }
+      self.cjs_tracker.is_maybe_cjs(specifier, media_type)?
+        && parsed_source.compute_is_script()
+    };
+    let module_kind = ModuleKind::from_is_cjs(is_cjs);
+    let source = self
+      .emitter
+      .maybe_emit_parsed_source(parsed_source, module_kind)
+      .await?;
+    Ok(source)
   }
 
   fn resolve_entrypoint(
@@ -717,4 +707,31 @@ fn npm_system_info() -> Result<NpmSystemInfo, anyhow::Error> {
       cpu: SmallStackString::from_string(arch),
     })
   })
+}
+
+// todo(dsherret): shift this down into deno_graph
+struct CapturingModuleAnalyzerRef<'a> {
+  parser: &'a dyn EsParser,
+  store: &'a dyn ParsedSourceStore,
+}
+
+impl<'a> CapturingModuleAnalyzerRef<'a> {
+  pub fn as_capturing_parser(&self) -> CapturingEsParser {
+    CapturingEsParser::new(Some(self.parser), self.store)
+  }
+}
+
+#[async_trait::async_trait(?Send)]
+impl ModuleAnalyzer for CapturingModuleAnalyzerRef<'_> {
+  async fn analyze(
+    &self,
+    specifier: &deno_ast::ModuleSpecifier,
+    source: Arc<str>,
+    media_type: MediaType,
+  ) -> Result<deno_graph::analysis::ModuleInfo, JsErrorBox> {
+    let capturing_parser = self.as_capturing_parser();
+    let module_analyzer =
+      deno_graph::ast::ParserModuleAnalyzer::new(&capturing_parser);
+    module_analyzer.analyze(specifier, source, media_type).await
+  }
 }
