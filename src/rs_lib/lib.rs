@@ -40,8 +40,9 @@ use deno_resolver::file_fetcher::PermissionedFileFetcher;
 use deno_resolver::file_fetcher::PermissionedFileFetcherOptions;
 use deno_resolver::graph::DefaultDenoResolverRc;
 use deno_resolver::graph::ResolveWithGraphOptions;
-use deno_resolver::loader::PreparedModuleLoader;
-use deno_resolver::loader::PreparedModuleOrAsset;
+use deno_resolver::loader::LoadCodeSourceErrorKind;
+use deno_resolver::loader::LoadedModuleOrAsset;
+use deno_resolver::loader::ModuleLoader;
 use deno_resolver::loader::RequestedModuleType;
 use deno_resolver::npm::DenoInNpmPackageChecker;
 use deno_semver::SmallStackString;
@@ -293,10 +294,7 @@ impl DenoWorkspace {
       resolver_factory: self.resolver_factory.clone(),
       npm_installer_factory: self.npm_installer_factory.clone(),
       parsed_source_cache: self.resolver_factory.parsed_source_cache().clone(),
-      prepared_module_loader: self
-        .resolver_factory
-        .prepared_module_loader()?
-        .clone(),
+      module_loader: self.resolver_factory.module_loader()?.clone(),
       task_queue: Default::default(),
       graph: deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly),
     })
@@ -314,8 +312,7 @@ pub struct DenoLoader {
   npm_installer_factory:
     Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
   parsed_source_cache: Arc<ParsedSourceCache>,
-  prepared_module_loader:
-    Arc<PreparedModuleLoader<DenoInNpmPackageChecker, RealSys>>,
+  module_loader: Arc<ModuleLoader<RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
   graph: ModuleGraph,
@@ -501,13 +498,12 @@ impl DenoLoader {
       return Ok(create_external_repsonse(&url));
     }
 
-    let maybe_prepared_module = self
-      .prepared_module_loader
-      .load_prepared_module(&self.graph, &url, requested_module_type)
-      .await?;
-
-    match maybe_prepared_module {
-      Some(PreparedModuleOrAsset::Module(m)) => {
+    match self
+      .module_loader
+      .load(&self.graph, &url, None, requested_module_type)
+      .await
+    {
+      Ok(LoadedModuleOrAsset::Module(m)) => {
         self.parsed_source_cache.free(&m.specifier);
         Ok(create_module_response(
           &m.specifier,
@@ -515,10 +511,13 @@ impl DenoLoader {
           m.source.as_bytes(),
         ))
       }
-      Some(PreparedModuleOrAsset::ExternalAsset { specifier }) => {
+      Ok(LoadedModuleOrAsset::ExternalAsset {
+        specifier,
+        statically_analyzable: _,
+      }) => {
         let file = self
           .file_fetcher
-          .fetch_bypass_permissions(specifier)
+          .fetch_bypass_permissions(&specifier)
           .await?;
         let media_type = MediaType::from_specifier_and_headers(
           &file.url,
@@ -526,42 +525,45 @@ impl DenoLoader {
         );
         Ok(create_module_response(&file.url, media_type, &file.source))
       }
-      None => {
-        if url.scheme() == "npm" {
-          bail!(
-            "Failed resolving '{}'\n\nResolve the npm: specifier to a file: specifier before providing it to the loader.",
-            url
-          )
-        }
-        let file = self.file_fetcher.fetch_bypass_permissions(&url).await?;
-        let media_type = MediaType::from_specifier_and_headers(
-          &url,
-          file.maybe_headers.as_ref(),
-        );
-        match requested_module_type {
-          RequestedModuleType::Text | RequestedModuleType::Bytes => {
-            Ok(create_module_response(&file.url, media_type, &file.source))
+      Err(err) => match err.as_kind() {
+        LoadCodeSourceErrorKind::LoadUnpreparedModule(_) => {
+          if url.scheme() == "npm" {
+            bail!(
+              "Failed resolving '{}'\n\nResolve the npm: specifier to a file: specifier before providing it to the loader.",
+              url
+            )
           }
-          RequestedModuleType::Json
-          | RequestedModuleType::None
-          | RequestedModuleType::Other(_) => {
-            if media_type.is_emittable() {
-              let str = String::from_utf8_lossy(&file.source);
-              let value = str.into();
-              let source = self
-                .maybe_transpile(&file.url, media_type, &value, None)
-                .await?;
-              Ok(create_module_response(
-                &file.url,
-                media_type,
-                source.as_bytes(),
-              ))
-            } else {
+          let file = self.file_fetcher.fetch_bypass_permissions(&url).await?;
+          let media_type = MediaType::from_specifier_and_headers(
+            &url,
+            file.maybe_headers.as_ref(),
+          );
+          match requested_module_type {
+            RequestedModuleType::Text | RequestedModuleType::Bytes => {
               Ok(create_module_response(&file.url, media_type, &file.source))
+            }
+            RequestedModuleType::Json
+            | RequestedModuleType::None
+            | RequestedModuleType::Other(_) => {
+              if media_type.is_emittable() {
+                let str = String::from_utf8_lossy(&file.source);
+                let value = str.into();
+                let source = self
+                  .maybe_transpile(&file.url, media_type, &value, None)
+                  .await?;
+                Ok(create_module_response(
+                  &file.url,
+                  media_type,
+                  source.as_bytes(),
+                ))
+              } else {
+                Ok(create_module_response(&file.url, media_type, &file.source))
+              }
             }
           }
         }
-      }
+        _ => return Err(err.into()),
+      },
     }
   }
 
