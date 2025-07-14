@@ -62,9 +62,9 @@ features = ["sync"]
 version = "=0.1.16"
 features = ["real"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies.sys_traits]
+[target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
 version = "=0.1.16"
-features = ["real", "wasm"]
+features = ["real","wasm"]
 
 [profile.release]
 codegen-units = 1
