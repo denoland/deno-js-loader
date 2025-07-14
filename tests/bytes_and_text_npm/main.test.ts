@@ -21,7 +21,7 @@ Deno.test("loads jsx transpiled", async () => {
 
   const mainTsUrl = loader.resolve(mainTs, undefined, ResolutionMode.Import);
   const dataFileUrl = loader.resolve(
-    "./data_utf8_bom.txt",
+    "package/data.txt",
     mainTsUrl,
     ResolutionMode.Import,
   );
