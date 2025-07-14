@@ -71,3 +71,6 @@ codegen-units = 1
 incremental = true
 lto = true
 opt-level = "z"
+
+[patch.crates-io]
+sys_traits = { git = "https://github.com/devsnek/sys_traits", branch = "avoid-to-vec" }

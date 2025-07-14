@@ -2592,8 +2592,7 @@ dependencies = [
 [[package]]
 name = "sys_traits"
 version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc4707edf3196e8037ee45018d1bb1bfb233b0e4fc440fa3d3f25bc69bfdaf26"
+source = "git+https://github.com/devsnek/sys_traits?branch=avoid-to-vec#bd22388b36fc65bfb9b00143a81b7cb73cf1cf88"
 dependencies = [
  "getrandom",
  "js-sys",
@@ -2607,8 +2606,7 @@ dependencies = [
 [[package]]
 name = "sys_traits_macros"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "181f22127402abcf8ee5c83ccd5b408933fec36a6095cf82cda545634692657e"
+source = "git+https://github.com/devsnek/sys_traits?branch=avoid-to-vec#bd22388b36fc65bfb9b00143a81b7cb73cf1cf88"
 dependencies = [
  "proc-macro2",
  "quote",
