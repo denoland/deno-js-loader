@@ -59,11 +59,11 @@ path = "../../deno/libs/node_resolver"
 features = ["sync"]
 
 [dependencies.sys_traits]
-version = "=0.1.16"
+version = "=0.1.17"
 features = ["real"]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
-version = "=0.1.16"
+version = "=0.1.17"
 features = ["real","wasm"]
 
 [profile.release]
@@ -71,7 +71,3 @@ codegen-units = 1
 incremental = true
 lto = true
 opt-level = "z"
-
-[patch.crates-io.sys_traits]
-git = "https://github.com/devsnek/sys_traits"
-branch = "avoid-to-vec"
