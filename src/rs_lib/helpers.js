@@ -3,6 +3,7 @@ export async function fetch_specifier(specifier, headers) {
     console.error("Downloading", specifier);
     const response = await fetch(specifier, {
       headers,
+      redirect: "manual",
     });
     const status = response.status;
     const body = await response.bytes();
