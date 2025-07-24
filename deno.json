@@ -10,7 +10,12 @@
   },
   "publish": {
     "exclude": [
+      ".github",
+      ".vscode",
+      ".gitmodules",
+      "deno.lock",
       "!./src/lib",
+      "scripts",
       "tests/"
     ]
   },
