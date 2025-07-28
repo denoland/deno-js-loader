@@ -467,9 +467,9 @@ dependencies = [
 
 [[package]]
 name = "deno_cache_dir"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7825da0551e670a270a3a20b92f8a0bffeb7d6120fa86b64e5daa969b8dd1a10"
+checksum = "4d5ed53fe1a9476cc0238aa130024ea031384c592e3c895a7b8c25bcad5f2f33"
 dependencies = [
  "async-trait",
  "base32",
@@ -544,9 +544,9 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.97.0"
+version = "0.97.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b88a268f9359a3e35446bde86e77e4264faaffa33a27cbab39c0279d7579b314"
+checksum = "3866f448996b190907271c29bbdc6caa66ea3f584f0892087ceb97143a317461"
 dependencies = [
  "async-trait",
  "boxed_error",
@@ -706,9 +706,9 @@ dependencies = [
 
 [[package]]
 name = "deno_path_util"
-version = "0.4.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "516f813389095889776b81cc9108ff6f336fd9409b4b12fc0138aea23d2708e1"
+checksum = "995a5563d815755b07c0f4b7a25a99cd3ef1c2f261ed7d1e9a53eae050a3f77e"
 dependencies = [
  "deno_error",
  "percent-encoding",
