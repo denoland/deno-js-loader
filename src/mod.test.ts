@@ -6,7 +6,7 @@ import {
 } from "./mod.ts";
 import { assert, assertEquals } from "@std/assert";
 
-Deno.test("should resolve and load", async () => {
+Deno.test("should resolve, load and get graph", async () => {
   const workspace = new Workspace({
     nodeConditions: undefined, // unsure doesn't error
   });
@@ -14,6 +14,8 @@ Deno.test("should resolve and load", async () => {
   const loader = await workspace.createLoader({
     entrypoints: [modFileUrl],
   });
+  const graph = loader.getGraph();
+  assertEquals(graph.roots[0], modFileUrl);
   const resolvedUrl = loader.resolve(
     "./mod.test.ts",
     modFileUrl,
