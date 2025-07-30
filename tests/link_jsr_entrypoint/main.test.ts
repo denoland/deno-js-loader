@@ -8,7 +8,7 @@ import {
 Deno.test("loads linked entrypoint", async () => {
   const mainFile = import.meta.dirname + "/testdata/main/main.ts";
   const { loader } = await createLoader({
-    configPath: import.meta.dirname + "/testdata/main/deno.json",
+    configPath: import.meta.resolve("./testdata/main/deno.json"),
   }, {
     entrypoints: [mainFile],
   });
