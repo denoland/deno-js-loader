@@ -14,7 +14,8 @@ export async function createLoader(
   loaderOptions: LoaderOptions,
 ) {
   const workspace = new Workspace(workspaceOptions);
-  const loader = await workspace.createLoader(loaderOptions);
+  const { loader, diagnostics } = await workspace.createLoader(loaderOptions);
+  assertEquals(diagnostics, []);
   return {
     loader,
     workspace,

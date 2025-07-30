@@ -5,7 +5,7 @@ import {
   ResolutionMode,
   type WorkspaceOptions,
 } from "../helpers.ts";
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 
 Deno.test("loads jsx transpiled", async () => {
   const mainJsx = import.meta.dirname + "/testdata/main.jsx";
@@ -47,9 +47,10 @@ ${mainJsxSourceMappingURL}`,
 
   {
     const { workspace } = await createWorkspace({ preserveJsx: true });
-    const newLoader = await workspace.createLoader({
+    const { loader: newLoader, diagnostics } = await workspace.createLoader({
       entrypoints: [mainJsx, mainTsxUrl],
     });
+    assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
       "console.log(<div />);\n",
@@ -61,9 +62,10 @@ ${mainJsxSourceMappingURL}`,
   }
   {
     const { workspace } = await createWorkspace({ noTranspile: true });
-    const newLoader = await workspace.createLoader({
+    const { loader: newLoader, diagnostics } = await workspace.createLoader({
       entrypoints: [mainJsx, mainTsx],
     });
+    assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
       `console.log(<div />);\n`,
