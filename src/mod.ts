@@ -222,8 +222,8 @@ export class Loader implements Disposable {
 
   /** Gets the module graph.
    *
-   * WARNING: This function is very unstable and the
-   * output may change in patch releases.
+   * WARNING: This function is very unstable and the output may change between
+   * patch releases.
    */
   getGraphUnstable(): unknown {
     return this.#inner.get_graph();
