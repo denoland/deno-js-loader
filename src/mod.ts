@@ -10,9 +10,12 @@
  * const workspace = new Workspace({
  *   // optional options
  * });
- * const loader = await workspace.createLoader({
+ * const { loader, diagnostics } = await workspace.createLoader({
  *   entrypoints: ["./mod.ts"]
  * });
+ * if (diagnostics.length > 0) {
+ *   throw new Error(diagnostics[0].message);
+ * }
  * const resolvedUrl = loader.resolve(
  *   "./mod.test.ts",
  *   "https://deno.land/mod.ts", // referrer
@@ -146,7 +149,9 @@ export class Workspace implements Disposable {
   }
 
   /** Creates a loader that uses this this workspace. */
-  async createLoader(options: LoaderOptions): Promise<Loader> {
+  async createLoader(
+    options: LoaderOptions,
+  ): Promise<{ loader: Loader; diagnostics: EntrypointDiagnostic[] }> {
     if (this.#debug) {
       console.error(
         `Creating loader for entrypoints:\n  ${
@@ -156,8 +161,8 @@ export class Workspace implements Disposable {
     }
     const wasmLoader = await this.#inner.create_loader();
     const loader = new Loader(wasmLoader, this.#debug);
-    await loader.addEntrypoints(options.entrypoints);
-    return loader;
+    const diagnostics = await loader.addEntrypoints(options.entrypoints);
+    return { loader, diagnostics };
   }
 }
 
@@ -166,6 +171,10 @@ export enum RequestedModuleType {
   Json = 1,
   Text = 2,
   Bytes = 3,
+}
+
+export interface EntrypointDiagnostic {
+  message: string;
 }
 
 /** A loader for resolving and loading urls. */
@@ -192,8 +201,11 @@ export class Loader implements Disposable {
    * stored in the internal module graph on the fly, which will allow
    * it to be synchronously resolved.
    */
-  addEntrypoints(entrypoints: string[]): Promise<void> {
-    return this.#inner.add_entrypoints(entrypoints);
+  async addEntrypoints(
+    entrypoints: string[],
+  ): Promise<EntrypointDiagnostic[]> {
+    const messages = await this.#inner.add_entrypoints(entrypoints);
+    return messages.map((message) => ({ message }));
   }
 
   /** Resolves a specifier using the given referrer and resolution mode. */

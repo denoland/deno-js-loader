@@ -10,9 +10,12 @@ use deno_ast::ModuleKind;
 use deno_cache_dir::file_fetcher::CacheSetting;
 use deno_cache_dir::file_fetcher::NullBlobStore;
 use deno_error::JsErrorBox;
+use deno_graph::CheckJsOption;
+use deno_graph::GraphKind;
 use deno_graph::MediaType;
 use deno_graph::ModuleGraph;
 use deno_graph::Position;
+use deno_graph::WalkOptions;
 use deno_graph::analysis::ModuleAnalyzer;
 use deno_graph::ast::CapturingEsParser;
 use deno_graph::ast::DefaultEsParser;
@@ -336,7 +339,7 @@ impl DenoLoader {
   pub async fn add_entrypoints(
     &mut self,
     entrypoints: Vec<String>,
-  ) -> Result<(), JsValue> {
+  ) -> Result<Vec<String>, JsValue> {
     // only allow one async task to modify the graph at a time
     let task_queue = self.task_queue.clone();
     task_queue
@@ -352,7 +355,7 @@ impl DenoLoader {
   async fn add_entrypoints_internal(
     &mut self,
     entrypoints: Vec<String>,
-  ) -> Result<(), anyhow::Error> {
+  ) -> Result<Vec<String>, anyhow::Error> {
     let roots = entrypoints
       .into_iter()
       .map(|e| self.resolve_entrypoint(e))
@@ -393,7 +396,7 @@ impl DenoLoader {
     self
       .graph
       .build(
-        roots,
+        roots.clone(),
         Vec::new(),
         &loader,
         deno_graph::BuildOptions {
@@ -414,8 +417,21 @@ impl DenoLoader {
         },
       )
       .await;
-    self.graph.valid()?;
-    Ok(())
+    let errors = self
+      .graph
+      .walk(
+        roots.iter(),
+        WalkOptions {
+          check_js: CheckJsOption::True,
+          kind: GraphKind::CodeOnly,
+          follow_dynamic: false,
+          prefer_fast_check_graph: false,
+        },
+      )
+      .errors()
+      .map(|e| e.to_string_with_range())
+      .collect();
+    Ok(errors)
   }
 
   pub fn resolve(
