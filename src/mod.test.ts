@@ -4,11 +4,11 @@ import {
   ResolutionMode,
   Workspace,
 } from "./mod.ts";
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 
 Deno.test("should resolve, load and get graph", async () => {
   const workspace = new Workspace({
-    nodeConditions: undefined, // unsure doesn't error
+    nodeConditions: undefined, // ensure doesn't error
   });
   const modFileUrl = import.meta.resolve("./mod.ts");
   const loader = await workspace.createLoader({
@@ -46,4 +46,22 @@ Deno.test("should resolve, load and get graph", async () => {
     assertEquals(typeof loadResponse.specifier, "string");
     assertEquals(loadResponse.specifier, "node:events");
   }
+});
+
+Deno.test("resolving a jsr specifier should fail with explanatory message", async () => {
+  const workspace = new Workspace({});
+  const modFileUrl = import.meta.resolve("./mod.ts");
+  const loader = await workspace.createLoader({
+    entrypoints: [modFileUrl],
+  });
+  assertRejects(
+    async () => {
+      await loader.load(
+        "jsr:@scope/version",
+        RequestedModuleType.Default,
+      );
+    },
+    Error,
+    "Failed loading 'jsr:@scope/version'. jsr: specifiers must be resolved to an https: specifier before being loaded.",
+  );
 });

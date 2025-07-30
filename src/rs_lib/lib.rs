@@ -467,7 +467,7 @@ impl DenoLoader {
         maintain_npm_specifiers: false,
       },
     )?;
-    Ok(resolved.to_string())
+    Ok(resolved.into())
   }
 
   pub async fn load(
@@ -502,6 +502,11 @@ impl DenoLoader {
 
     if url.scheme() == "node" {
       return Ok(create_external_repsonse(&url));
+    } else if url.scheme() == "jsr" {
+      bail!(
+        "Failed loading '{}'. jsr: specifiers must be resolved to an https: specifier before being loaded.",
+        url
+      );
     }
 
     match self
