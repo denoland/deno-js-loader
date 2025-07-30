@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use anyhow::Context;
 use anyhow::bail;
 use deno_ast::ModuleKind;
 use deno_cache_dir::file_fetcher::CacheSetting;
@@ -166,7 +167,10 @@ impl DenoWorkspace {
     let config_discovery = if options.no_config.unwrap_or_default() {
       ConfigDiscoveryOption::Disabled
     } else if let Some(config_path) = options.config_path {
-      ConfigDiscoveryOption::Path(resolve_absolute_path(config_path, &cwd)?)
+      ConfigDiscoveryOption::Path(
+        resolve_absolute_path(config_path, &cwd)
+          .context("Failed resolving config path.")?,
+      )
     } else {
       ConfigDiscoveryOption::DiscoverCwd
     };
@@ -774,7 +778,7 @@ fn resolve_absolute_path(
 }
 
 fn create_js_error(err: anyhow::Error) -> JsValue {
-  wasm_bindgen::JsError::new(&err.to_string()).into()
+  wasm_bindgen::JsError::new(&format!("{:#}", err)).into()
 }
 
 fn parse_resolution_mode(resolution_mode: u8) -> node_resolver::ResolutionMode {
