@@ -10,7 +10,7 @@ Deno.test("loads linked entrypoint", async () => {
   const { loader } = await createLoader({
     configPath: import.meta.dirname + "/testdata/main/deno.json",
   }, {
-    entrypoints: [mainFile, "jsr:@denotest/add", "@denotest/add"],
+    entrypoints: [mainFile],
   });
 
   const response = await loader.load(
