@@ -16,6 +16,8 @@
  * if (diagnostics.length > 0) {
  *   throw new Error(diagnostics[0].message);
  * }
+ * // alternatively use resolveAsync to resolve npm/jsr specifiers not found
+ * // in the entrypoints or if not being able to provide entrypoints
  * const resolvedUrl = loader.resolve(
  *   "./mod.test.ts",
  *   "https://deno.land/mod.ts", // referrer
@@ -208,7 +210,7 @@ export class Loader implements Disposable {
     return messages.map((message) => ({ message }));
   }
 
-  /** Resolves a specifier using the given referrer and resolution mode. */
+  /** Synchronously resolves a specifier using the given referrer and resolution mode. */
   resolve(
     specifier: string,
     referrer: string | undefined,
@@ -222,6 +224,39 @@ export class Loader implements Disposable {
       );
     }
     const value = this.#inner.resolve(specifier, referrer, resolutionMode);
+    if (this.#debug) {
+      console.error(`Resolved to '${value}'`);
+    }
+    return value;
+  }
+
+  /** Asynchronously resolves a specifier using the given referrer and resolution mode.
+   *
+   * This is useful for resolving `jsr:` and `npm:` specifiers on the fly when they can't
+   * be figured out from entrypoints, but it may cause multiple "npm install"s and different
+   * npm or jsr resolution than Deno. For that reason it's better to provide the list of
+   * entrypoints up front so the loader can create the npm and jsr graph, and then after use
+   * synchronous resolution to resolve jsr and npm specifiers.
+   */
+  resolveAsync(
+    specifier: string,
+    referrer: string | undefined,
+    resolutionMode: ResolutionMode,
+  ) {
+    // note: this function breaks typical JS naming conventions because it is
+    // preferred that people use resolve instead of resolveAsync
+    if (this.#debug) {
+      console.error(
+        `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
+          resolutionModeToString(resolutionMode)
+        })`,
+      );
+    }
+    const value = this.#inner.resolve_async(
+      specifier,
+      referrer,
+      resolutionMode,
+    );
     if (this.#debug) {
       console.error(`Resolved to '${value}'`);
     }
