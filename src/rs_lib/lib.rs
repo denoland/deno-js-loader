@@ -327,6 +327,12 @@ impl Drop for DenoLoader {
 
 #[wasm_bindgen]
 impl DenoLoader {
+  pub fn get_graph(&self) -> JsValue {
+    let serializer =
+      serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    self.graph.serialize(&serializer).unwrap()
+  }
+
   pub async fn add_roots(&mut self, roots: Vec<String>) -> Result<(), JsValue> {
     // only allow one async task to modify the graph at a time
     let task_queue = self.task_queue.clone();

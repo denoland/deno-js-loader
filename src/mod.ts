@@ -219,6 +219,15 @@ export class Loader implements Disposable {
     }
     return this.#inner.load(specifier, requestedModuleType);
   }
+
+  /** Gets the module graph.
+   *
+   * WARNING: This function is very unstable and the output may change between
+   * patch releases.
+   */
+  getGraphUnstable(): unknown {
+    return this.#inner.get_graph();
+  }
 }
 
 function requestedModuleTypeToString(moduleType: RequestedModuleType) {
