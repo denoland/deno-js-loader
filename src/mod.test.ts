@@ -14,7 +14,7 @@ Deno.test("should resolve, load and get graph", async () => {
   const loader = await workspace.createLoader({
     entrypoints: [modFileUrl],
   });
-  const graph = loader.getGraph();
+  const graph = loader.getGraphUnstable();
   assertEquals(graph.roots[0], modFileUrl);
   const resolvedUrl = loader.resolve(
     "./mod.test.ts",

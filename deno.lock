@@ -6,6 +6,7 @@
     "jsr:@david/path@0.2": "0.2.0",
     "jsr:@david/temp@~0.1.1": "0.1.1",
     "jsr:@david/which@~0.4.1": "0.4.1",
+    "jsr:@deno/graph@~0.97.1": "0.97.1",
     "jsr:@deno/wasmbuild@0.19.2": "0.19.2",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/bytes@^1.0.5": "1.0.6",
@@ -58,6 +59,9 @@
     },
     "@david/which@0.4.1": {
       "integrity": "896a682b111f92ab866cc70c5b4afab2f5899d2f9bde31ed00203b9c250f225e"
+    },
+    "@deno/graph@0.97.1": {
+      "integrity": "e35e2586406c1402e4026ebf328714f85ade84f114355e9014e6c92cadd2b654"
     },
     "@deno/wasmbuild@0.19.2": {
       "integrity": "f4a92beae788e2fd68189aefb6a6d8c3be79519c3ef8429a10519296379c33d1",
@@ -856,6 +860,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@david/dax@~0.43.2",
+      "jsr:@deno/graph@~0.97.1",
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/toml@^1.0.7"
     ]

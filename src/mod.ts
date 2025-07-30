@@ -37,9 +37,6 @@ import {
   DenoLoader as WasmLoader,
   DenoWorkspace as WasmWorkspace,
 } from "./lib/rs_lib.js";
-import type { ModuleGraphJson } from "@deno/graph/types";
-
-export type { ModuleGraphJson };
 
 /** Options for creating a workspace. */
 export interface WorkspaceOptions {
@@ -223,10 +220,12 @@ export class Loader implements Disposable {
     return this.#inner.load(specifier, requestedModuleType);
   }
 
-  getGraph(): ModuleGraphJson {
-    if (this.#debug) {
-      console.error("Getting the module graph");
-    }
+  /** Gets the module graph.
+   *
+   * WARNING: This function is very unstable and the
+   * output may change in patch releases.
+   */
+  getGraphUnstable(): unknown {
     return this.#inner.get_graph();
   }
 }
