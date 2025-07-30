@@ -156,7 +156,7 @@ export class Workspace implements Disposable {
     }
     const wasmLoader = await this.#inner.create_loader();
     const loader = new Loader(wasmLoader, this.#debug);
-    await loader.addRoots(options.entrypoints);
+    await loader.addEntrypoints(options.entrypoints);
     return loader;
   }
 }
@@ -186,14 +186,14 @@ export class Loader implements Disposable {
     this.#inner.free();
   }
 
-  /** Adds additional roots to the loader.
+  /** Adds additional entrypoints to the loader after the fact.
    *
-   * This may be useful for having a JSR specifier stored
-   * in the internal module graph on the fly, which will allow
-   * it to be resolved.
+   * This may be useful for having a JSR specifier asynchronously
+   * stored in the internal module graph on the fly, which will allow
+   * it to be synchronously resolved.
    */
-  addRoots(entrypoints: string[]): Promise<void> {
-    return this.#inner.add_roots(entrypoints);
+  addEntrypoints(entrypoints: string[]): Promise<void> {
+    return this.#inner.add_entrypoints(entrypoints);
   }
 
   /** Resolves a specifier using the given referrer and resolution mode. */

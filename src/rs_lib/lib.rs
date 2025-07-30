@@ -333,19 +333,27 @@ impl DenoLoader {
     self.graph.serialize(&serializer).unwrap()
   }
 
-  pub async fn add_roots(&mut self, roots: Vec<String>) -> Result<(), JsValue> {
+  pub async fn add_entrypoints(
+    &mut self,
+    entrypoints: Vec<String>,
+  ) -> Result<(), JsValue> {
     // only allow one async task to modify the graph at a time
     let task_queue = self.task_queue.clone();
     task_queue
-      .run(async { self.add_roots_inner(roots).await.map_err(create_js_error) })
+      .run(async {
+        self
+          .add_entrypoints_internal(entrypoints)
+          .await
+          .map_err(create_js_error)
+      })
       .await
   }
 
-  async fn add_roots_inner(
+  async fn add_entrypoints_internal(
     &mut self,
-    roots: Vec<String>,
+    entrypoints: Vec<String>,
   ) -> Result<(), anyhow::Error> {
-    let roots = roots
+    let roots = entrypoints
       .into_iter()
       .map(|e| self.resolve_entrypoint(e))
       .collect::<Result<Vec<_>, _>>()?;
