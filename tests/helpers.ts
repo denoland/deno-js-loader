@@ -13,12 +13,27 @@ export async function createLoader(
   workspaceOptions: WorkspaceOptions,
   loaderOptions: LoaderOptions,
 ) {
-  const workspace = new Workspace(workspaceOptions);
-  const { loader, diagnostics } = await workspace.createLoader(loaderOptions);
+  const { loader, workspace, diagnostics } = await createLoaderWithDiagnostics(
+    workspaceOptions,
+    loaderOptions,
+  );
   assertEquals(diagnostics, []);
   return {
     loader,
     workspace,
+  };
+}
+
+export async function createLoaderWithDiagnostics(
+  workspaceOptions: WorkspaceOptions,
+  loaderOptions: LoaderOptions,
+) {
+  const workspace = new Workspace(workspaceOptions);
+  const { loader, diagnostics } = await workspace.createLoader(loaderOptions);
+  return {
+    loader,
+    workspace,
+    diagnostics,
   };
 }
 
