@@ -361,7 +361,12 @@ impl DenoLoader {
   ) -> Result<Vec<String>, anyhow::Error> {
     let urls = entrypoints
       .into_iter()
-      .map(|e| self.resolve_entrypoint(Cow::Owned(e)))
+      .map(|e| {
+        self.resolve_entrypoint(
+          Cow::Owned(e),
+          node_resolver::ResolutionMode::Import,
+        )
+      })
       .collect::<Result<Vec<_>, _>>()?;
     self.add_entrypoint_urls(urls.clone()).await?;
     let errors = self
@@ -466,8 +471,11 @@ impl DenoLoader {
     importer: Option<String>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
-    let (specifier, referrer) =
-      self.resolve_specifier_and_referrer(specifier, importer)?;
+    let (specifier, referrer) = self.resolve_specifier_and_referrer(
+      specifier,
+      importer,
+      resolution_mode,
+    )?;
     let resolved = self.resolver.resolve_with_graph(
       &self.graph,
       &specifier,
@@ -504,8 +512,11 @@ impl DenoLoader {
     importer: Option<String>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
-    let (specifier, referrer) =
-      self.resolve_specifier_and_referrer(&specifier, importer.clone())?;
+    let (specifier, referrer) = self.resolve_specifier_and_referrer(
+      &specifier,
+      importer.clone(),
+      resolution_mode,
+    )?;
     let resolved = self.resolver.resolve_with_graph(
       &self.graph,
       &specifier,
@@ -531,6 +542,7 @@ impl DenoLoader {
     &self,
     specifier: &'a str,
     importer: Option<String>,
+    resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<(Cow<'a, str>, Url), anyhow::Error> {
     let importer = importer.filter(|v| !v.is_empty());
     Ok(match importer {
@@ -548,8 +560,11 @@ impl DenoLoader {
         )?,
       ),
       None => {
-        let entrypoint =
-          Cow::Owned(self.resolve_entrypoint(Cow::Borrowed(specifier))?.into());
+        let entrypoint = Cow::Owned(
+          self
+            .resolve_entrypoint(Cow::Borrowed(specifier), resolution_mode)?
+            .into(),
+        );
         (
           entrypoint,
           deno_path_util::url_from_directory_path(
@@ -701,6 +716,7 @@ impl DenoLoader {
   fn resolve_entrypoint(
     &self,
     specifier: Cow<str>,
+    resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<Url, anyhow::Error> {
     let cwd = self.workspace_factory.initial_cwd();
     if specifier.contains('\\') {
@@ -714,7 +730,7 @@ impl DenoLoader {
       &specifier,
       &referrer,
       Position::zeroed(),
-      node_resolver::ResolutionMode::Import,
+      resolution_mode,
       node_resolver::NodeResolutionKind::Execution,
     )?)
   }
