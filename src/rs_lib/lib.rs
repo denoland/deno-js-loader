@@ -445,14 +445,14 @@ impl DenoLoader {
     Ok(())
   }
 
-  pub fn resolve(
+  pub fn resolve_sync(
     &self,
     specifier: String,
     importer: Option<String>,
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
     self
-      .resolve_inner(
+      .resolve_sync_inner(
         &specifier,
         importer,
         parse_resolution_mode(resolution_mode),
@@ -460,7 +460,7 @@ impl DenoLoader {
       .map_err(create_js_error)
   }
 
-  fn resolve_inner(
+  fn resolve_sync_inner(
     &self,
     specifier: &str,
     importer: Option<String>,
@@ -482,14 +482,14 @@ impl DenoLoader {
     Ok(resolved.into())
   }
 
-  pub async fn resolve_async(
+  pub async fn resolve(
     &mut self,
     specifier: String,
     importer: Option<String>,
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
     self
-      .resolve_async_inner(
+      .resolve_inner(
         &specifier,
         importer,
         parse_resolution_mode(resolution_mode),
@@ -498,7 +498,7 @@ impl DenoLoader {
       .map_err(create_js_error)
   }
 
-  async fn resolve_async_inner(
+  async fn resolve_inner(
     &mut self,
     specifier: &str,
     importer: Option<String>,
@@ -521,7 +521,7 @@ impl DenoLoader {
       || JsrPackageReqReference::from_specifier(&resolved).is_ok()
     {
       self.add_entrypoint_urls(vec![resolved.clone()]).await?;
-      self.resolve_inner(&specifier, importer, resolution_mode)
+      self.resolve_sync_inner(&specifier, importer, resolution_mode)
     } else {
       Ok(resolved.into())
     }
@@ -594,7 +594,7 @@ impl DenoLoader {
       return Ok(create_external_repsonse(&url));
     } else if url.scheme() == "jsr" {
       bail!(
-        "Failed loading '{}'. jsr: specifiers must be resolved to an https: specifier before being loaded. Ensure it's found via an entrypoint or resolve with resolveAsync.",
+        "Failed loading '{}'. jsr: specifiers must be resolved to an https: specifier before being loaded.",
         url
       );
     }

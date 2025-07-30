@@ -10,7 +10,7 @@ Deno.test("resolves npm specifiers and jsr specifiers on demand with resolveAsyn
   });
 
   {
-    const jsrUrl = await loader.resolveAsync(
+    const jsrUrl = await loader.resolve(
       "jsr:@david/code-block-writer",
       import.meta.url,
       ResolutionMode.Import,
@@ -18,7 +18,7 @@ Deno.test("resolves npm specifiers and jsr specifiers on demand with resolveAsyn
     assert(jsrUrl.startsWith("https://"));
   }
   {
-    const npmUrl = await loader.resolveAsync(
+    const npmUrl = await loader.resolve(
       "npm:code-block-writer",
       import.meta.url,
       ResolutionMode.Import,
@@ -37,7 +37,7 @@ Deno.test("errors when using nodeModulesDir: manual and npm package is not insta
   {
     await assertRejects(
       () =>
-        loader.resolveAsync(
+        loader.resolve(
           "npm:code-block-writer",
           import.meta.url,
           ResolutionMode.Import,

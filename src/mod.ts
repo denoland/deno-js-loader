@@ -16,9 +16,9 @@
  * if (diagnostics.length > 0) {
  *   throw new Error(diagnostics[0].message);
  * }
- * // alternatively use resolveAsync to resolve npm/jsr specifiers not found
+ * // alternatively use resolve to resolve npm/jsr specifiers not found
  * // in the entrypoints or if not being able to provide entrypoints
- * const resolvedUrl = loader.resolve(
+ * const resolvedUrl = loader.resolveSync(
  *   "./mod.test.ts",
  *   "https://deno.land/mod.ts", // referrer
  *   ResolutionMode.Import,
@@ -211,7 +211,7 @@ export class Loader implements Disposable {
   }
 
   /** Synchronously resolves a specifier using the given referrer and resolution mode. */
-  resolve(
+  resolveSync(
     specifier: string,
     referrer: string | undefined,
     resolutionMode: ResolutionMode,
@@ -223,7 +223,7 @@ export class Loader implements Disposable {
         })`,
       );
     }
-    const value = this.#inner.resolve(specifier, referrer, resolutionMode);
+    const value = this.#inner.resolve_sync(specifier, referrer, resolutionMode);
     if (this.#debug) {
       console.error(`Resolved to '${value}'`);
     }
@@ -238,13 +238,11 @@ export class Loader implements Disposable {
    * entrypoints up front so the loader can create the npm and jsr graph, and then after use
    * synchronous resolution to resolve jsr and npm specifiers.
    */
-  resolveAsync(
+  resolve(
     specifier: string,
     referrer: string | undefined,
     resolutionMode: ResolutionMode,
   ): Promise<string> {
-    // note: this function breaks typical JS naming conventions because it is
-    // preferred that people use resolve instead of resolveAsync
     if (this.#debug) {
       console.error(
         `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
@@ -252,7 +250,7 @@ export class Loader implements Disposable {
         })`,
       );
     }
-    const value = this.#inner.resolve_async(
+    const value = this.#inner.resolve(
       specifier,
       referrer,
       resolutionMode,
