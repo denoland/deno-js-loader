@@ -242,7 +242,7 @@ export class Loader implements Disposable {
     specifier: string,
     referrer: string | undefined,
     resolutionMode: ResolutionMode,
-  ) {
+  ): Promise<string> {
     // note: this function breaks typical JS naming conventions because it is
     // preferred that people use resolve instead of resolveAsync
     if (this.#debug) {
