@@ -166,7 +166,7 @@ impl DenoWorkspace {
     let config_discovery = if options.no_config.unwrap_or_default() {
       ConfigDiscoveryOption::Disabled
     } else if let Some(config_path) = options.config_path {
-      ConfigDiscoveryOption::Path(resolve_absolute_path(config_path, &cwd))
+      ConfigDiscoveryOption::Path(resolve_absolute_path(config_path, &cwd)?)
     } else {
       ConfigDiscoveryOption::DiscoverCwd
     };
@@ -707,7 +707,7 @@ impl DenoLoader {
       return Ok(deno_path_util::url_from_file_path(&resolve_absolute_path(
         specifier.into_owned(),
         cwd,
-      ))?);
+      )?)?);
     }
     let referrer = deno_path_util::url_from_directory_path(cwd)?;
     Ok(self.resolver.resolve(
@@ -760,9 +760,17 @@ fn create_external_repsonse(url: &Url) -> JsValue {
   obj.into()
 }
 
-fn resolve_absolute_path(path: String, cwd: &Path) -> PathBuf {
-  let path = sys_traits::impls::wasm_string_to_path(path);
-  cwd.join(path)
+fn resolve_absolute_path(
+  path: String,
+  cwd: &Path,
+) -> Result<PathBuf, anyhow::Error> {
+  if path.starts_with("file:///") {
+    let url = Url::parse(&path)?;
+    Ok(deno_path_util::url_to_file_path(&url)?)
+  } else {
+    let path = sys_traits::impls::wasm_string_to_path(path);
+    Ok(cwd.join(path))
+  }
 }
 
 fn create_js_error(err: anyhow::Error) -> JsValue {

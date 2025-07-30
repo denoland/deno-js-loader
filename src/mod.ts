@@ -49,7 +49,7 @@ export interface WorkspaceOptions {
   noConfig?: boolean;
   /** Do not respect the lockfile. */
   noLock?: boolean;
-  /** Path to the config file if you do not want to do config file discovery. */
+  /** Path or file: URL to the config file if you do not want to do config file discovery. */
   configPath?: string;
   /** Node resolution conditions to use for resolving package.json exports. */
   nodeConditions?: string[];
