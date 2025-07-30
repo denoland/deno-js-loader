@@ -1,5 +1,6 @@
 mod http_client;
 
+use std::borrow::Cow;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -49,6 +50,8 @@ use deno_resolver::loader::ModuleLoader;
 use deno_resolver::loader::RequestedModuleType;
 use deno_resolver::npm::DenoInNpmPackageChecker;
 use deno_semver::SmallStackString;
+use deno_semver::jsr::JsrPackageReqReference;
+use deno_semver::npm::NpmPackageReqReference;
 use js_sys::Object;
 use js_sys::Uint8Array;
 use node_resolver::NodeConditionOptions;
@@ -356,10 +359,32 @@ impl DenoLoader {
     &mut self,
     entrypoints: Vec<String>,
   ) -> Result<Vec<String>, anyhow::Error> {
-    let roots = entrypoints
+    let urls = entrypoints
       .into_iter()
-      .map(|e| self.resolve_entrypoint(e))
+      .map(|e| self.resolve_entrypoint(Cow::Owned(e)))
       .collect::<Result<Vec<_>, _>>()?;
+    self.add_entrypoint_urls(urls.clone()).await?;
+    let errors = self
+      .graph
+      .walk(
+        urls.iter(),
+        WalkOptions {
+          check_js: CheckJsOption::True,
+          kind: GraphKind::CodeOnly,
+          follow_dynamic: false,
+          prefer_fast_check_graph: false,
+        },
+      )
+      .errors()
+      .map(|e| e.to_string_with_range())
+      .collect();
+    Ok(errors)
+  }
+
+  async fn add_entrypoint_urls(
+    &mut self,
+    entrypoints: Vec<Url>,
+  ) -> Result<(), anyhow::Error> {
     let npm_package_info_provider = self
       .npm_installer_factory
       .lockfile_npm_package_info_provider()?;
@@ -396,7 +421,7 @@ impl DenoLoader {
     self
       .graph
       .build(
-        roots.clone(),
+        entrypoints,
         Vec::new(),
         &loader,
         deno_graph::BuildOptions {
@@ -417,69 +442,32 @@ impl DenoLoader {
         },
       )
       .await;
-    let errors = self
-      .graph
-      .walk(
-        roots.iter(),
-        WalkOptions {
-          check_js: CheckJsOption::True,
-          kind: GraphKind::CodeOnly,
-          follow_dynamic: false,
-          prefer_fast_check_graph: false,
-        },
-      )
-      .errors()
-      .map(|e| e.to_string_with_range())
-      .collect();
-    Ok(errors)
+    Ok(())
   }
 
-  pub fn resolve(
+  pub fn resolve_sync(
     &self,
     specifier: String,
     importer: Option<String>,
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
-    let resolution_mode = match resolution_mode {
-      1 => node_resolver::ResolutionMode::Require,
-      _ => node_resolver::ResolutionMode::Import,
-    };
     self
-      .resolve_inner(specifier, importer, resolution_mode)
+      .resolve_sync_inner(
+        &specifier,
+        importer,
+        parse_resolution_mode(resolution_mode),
+      )
       .map_err(create_js_error)
   }
 
-  fn resolve_inner(
+  fn resolve_sync_inner(
     &self,
-    specifier: String,
+    specifier: &str,
     importer: Option<String>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
-    let importer = importer.filter(|v| !v.is_empty());
-    let (specifier, referrer) = match importer {
-      Some(referrer)
-        if referrer.starts_with("http:")
-          || referrer.starts_with("https:")
-          || referrer.starts_with("file:") =>
-      {
-        (specifier, Url::parse(&referrer)?)
-      }
-      Some(referrer) => (
-        specifier,
-        deno_path_util::url_from_file_path(
-          &sys_traits::impls::wasm_string_to_path(referrer),
-        )?,
-      ),
-      None => {
-        let entrypoint = self.resolve_entrypoint(specifier)?.to_string();
-        (
-          entrypoint,
-          deno_path_util::url_from_file_path(
-            self.workspace_factory.initial_cwd(),
-          )?,
-        )
-      }
-    };
+    let (specifier, referrer) =
+      self.resolve_specifier_and_referrer(specifier, importer)?;
     let resolved = self.resolver.resolve_with_graph(
       &self.graph,
       &specifier,
@@ -492,6 +480,84 @@ impl DenoLoader {
       },
     )?;
     Ok(resolved.into())
+  }
+
+  pub async fn resolve(
+    &mut self,
+    specifier: String,
+    importer: Option<String>,
+    resolution_mode: u8,
+  ) -> Result<String, JsValue> {
+    self
+      .resolve_inner(
+        &specifier,
+        importer,
+        parse_resolution_mode(resolution_mode),
+      )
+      .await
+      .map_err(create_js_error)
+  }
+
+  async fn resolve_inner(
+    &mut self,
+    specifier: &str,
+    importer: Option<String>,
+    resolution_mode: node_resolver::ResolutionMode,
+  ) -> Result<String, anyhow::Error> {
+    let (specifier, referrer) =
+      self.resolve_specifier_and_referrer(&specifier, importer.clone())?;
+    let resolved = self.resolver.resolve_with_graph(
+      &self.graph,
+      &specifier,
+      &referrer,
+      deno_graph::Position::zeroed(),
+      ResolveWithGraphOptions {
+        mode: resolution_mode,
+        kind: node_resolver::NodeResolutionKind::Execution,
+        maintain_npm_specifiers: true,
+      },
+    )?;
+    if NpmPackageReqReference::from_specifier(&resolved).is_ok()
+      || JsrPackageReqReference::from_specifier(&resolved).is_ok()
+    {
+      self.add_entrypoint_urls(vec![resolved.clone()]).await?;
+      self.resolve_sync_inner(&specifier, importer, resolution_mode)
+    } else {
+      Ok(resolved.into())
+    }
+  }
+
+  fn resolve_specifier_and_referrer<'a>(
+    &self,
+    specifier: &'a str,
+    importer: Option<String>,
+  ) -> Result<(Cow<'a, str>, Url), anyhow::Error> {
+    let importer = importer.filter(|v| !v.is_empty());
+    Ok(match importer {
+      Some(referrer)
+        if referrer.starts_with("http:")
+          || referrer.starts_with("https:")
+          || referrer.starts_with("file:") =>
+      {
+        (Cow::Borrowed(specifier), Url::parse(&referrer)?)
+      }
+      Some(referrer) => (
+        Cow::Borrowed(specifier),
+        deno_path_util::url_from_file_path(
+          &sys_traits::impls::wasm_string_to_path(referrer),
+        )?,
+      ),
+      None => {
+        let entrypoint =
+          Cow::Owned(self.resolve_entrypoint(Cow::Borrowed(specifier))?.into());
+        (
+          entrypoint,
+          deno_path_util::url_from_directory_path(
+            self.workspace_factory.initial_cwd(),
+          )?,
+        )
+      }
+    })
   }
 
   pub async fn load(
@@ -634,12 +700,13 @@ impl DenoLoader {
 
   fn resolve_entrypoint(
     &self,
-    specifier: String,
+    specifier: Cow<str>,
   ) -> Result<Url, anyhow::Error> {
     let cwd = self.workspace_factory.initial_cwd();
     if specifier.contains('\\') {
       return Ok(deno_path_util::url_from_file_path(&resolve_absolute_path(
-        specifier, cwd,
+        specifier.into_owned(),
+        cwd,
       ))?);
     }
     let referrer = deno_path_util::url_from_directory_path(cwd)?;
@@ -700,6 +767,13 @@ fn resolve_absolute_path(path: String, cwd: &Path) -> PathBuf {
 
 fn create_js_error(err: anyhow::Error) -> JsValue {
   wasm_bindgen::JsError::new(&err.to_string()).into()
+}
+
+fn parse_resolution_mode(resolution_mode: u8) -> node_resolver::ResolutionMode {
+  match resolution_mode {
+    1 => node_resolver::ResolutionMode::Require,
+    _ => node_resolver::ResolutionMode::Import,
+  }
 }
 
 fn media_type_to_u8(media_type: MediaType) -> u8 {

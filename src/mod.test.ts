@@ -17,7 +17,7 @@ Deno.test("should resolve, load and get graph", async () => {
   assertEquals(diagnostics.length, 0);
   const graph = loader.getGraphUnstable();
   assertEquals((graph as any).roots[0], modFileUrl);
-  const resolvedUrl = loader.resolve(
+  const resolvedUrl = loader.resolveSync(
     "./mod.test.ts",
     modFileUrl,
     ResolutionMode.Import,

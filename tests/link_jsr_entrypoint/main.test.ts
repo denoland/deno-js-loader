@@ -14,7 +14,7 @@ Deno.test("loads linked entrypoint", async () => {
   });
 
   const response = await loader.load(
-    loader.resolve("@denotest/add", undefined, ResolutionMode.Import),
+    loader.resolveSync("@denotest/add", undefined, ResolutionMode.Import),
     RequestedModuleType.Default,
   );
   assertResponseText(
