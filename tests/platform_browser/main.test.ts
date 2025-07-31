@@ -1,6 +1,6 @@
 import { ResolutionMode } from "@deno/loader";
 import { createLoader } from "../helpers.ts";
-import { assert, assertRejects } from "@std/assert";
+import { assert } from "@std/assert";
 
 Deno.test("resolves to browser locations", async () => {
   const { loader } = await createLoader({
