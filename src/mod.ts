@@ -53,6 +53,11 @@ export interface WorkspaceOptions {
   configPath?: string;
   /** Node resolution conditions to use for resolving package.json exports. */
   nodeConditions?: string[];
+  /**
+   * Platform to bundle for.
+   * @default "node"
+   */
+  platform?: "node" | "browser";
   /** Whether to force using the cache. */
   cachedOnly?: boolean;
   /** Enable debug logs. */
