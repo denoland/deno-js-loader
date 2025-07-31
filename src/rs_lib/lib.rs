@@ -121,6 +121,8 @@ pub struct DenoWorkspaceOptions {
   #[serde(default)]
   pub no_lock: Option<bool>,
   #[serde(default)]
+  pub platform: Option<String>,
+  #[serde(default)]
   pub config_path: Option<String>,
   #[serde(default)]
   pub node_conditions: Option<Vec<String>>,
@@ -162,8 +164,20 @@ impl DenoWorkspace {
   }
 
   fn new_inner(options: DenoWorkspaceOptions) -> Result<Self, anyhow::Error> {
+    fn resolve_is_browser_platform(
+      options: &DenoWorkspaceOptions,
+    ) -> Result<bool, anyhow::Error> {
+      Ok(match options.platform.as_deref() {
+        Some("node" | "deno") => false,
+        Some("browser") => true,
+        Some(value) => bail!("Unknown platform '{}'", value),
+        None => false,
+      })
+    }
+
     let sys = RealSys;
     let cwd = sys.env_current_dir()?;
+    let is_browser_platform = resolve_is_browser_platform(&options)?;
     let config_discovery = if options.no_config.unwrap_or_default() {
       ConfigDiscoveryOption::Disabled
     } else if let Some(config_path) = options.config_path {
@@ -213,9 +227,8 @@ impl DenoWorkspace {
         unstable_sloppy_imports: true,
         npm_system_info: npm_system_info()?,
         node_resolver_options: NodeResolverOptions {
-          // todo: support these
-          prefer_browser_field: false,
-          bundle_mode: false,
+          is_browser_platform,
+          bundle_mode: true,
           conditions: NodeConditionOptions {
             conditions: options
               .node_conditions
