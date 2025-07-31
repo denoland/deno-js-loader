@@ -55,9 +55,8 @@ ${mainJsxSourceMappingURL}`,
 
   {
     const { workspace } = await createWorkspace({ preserveJsx: true });
-    const { loader: newLoader, diagnostics } = await workspace.createLoader({
-      entrypoints: [mainJsx, mainTsxUrl],
-    });
+    const newLoader = await workspace.createLoader();
+    const diagnostics = await newLoader.addEntrypoints([mainJsx, mainTsxUrl]);
     assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
@@ -70,9 +69,8 @@ ${mainJsxSourceMappingURL}`,
   }
   {
     const { workspace } = await createWorkspace({ noTranspile: true });
-    const { loader: newLoader, diagnostics } = await workspace.createLoader({
-      entrypoints: [mainJsx, mainTsx],
-    });
+    const newLoader = await workspace.createLoader();
+    const diagnostics = await newLoader.addEntrypoints([mainJsx, mainTsx]);
     assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),

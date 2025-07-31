@@ -11,9 +11,8 @@ Deno.test("should resolve, load and get graph", async () => {
     nodeConditions: undefined, // ensure doesn't error
   });
   const modFileUrl = import.meta.resolve("./mod.ts");
-  const { loader, diagnostics } = await workspace.createLoader({
-    entrypoints: [modFileUrl],
-  });
+  const loader = await workspace.createLoader();
+  const diagnostics = await loader.addEntrypoints([modFileUrl]);
   assertEquals(diagnostics.length, 0);
   const graph = loader.getGraphUnstable();
   assertEquals((graph as any).roots[0], modFileUrl);
@@ -52,9 +51,8 @@ Deno.test("should resolve, load and get graph", async () => {
 Deno.test("resolving a jsr specifier should fail with explanatory message", async () => {
   const workspace = new Workspace({});
   const modFileUrl = import.meta.resolve("./mod.ts");
-  const { loader, diagnostics } = await workspace.createLoader({
-    entrypoints: [modFileUrl],
-  });
+  const loader = await workspace.createLoader();
+  const diagnostics = await loader.addEntrypoints([modFileUrl]);
   assertEquals(diagnostics.length, 0);
   assertRejects(
     async () => {
