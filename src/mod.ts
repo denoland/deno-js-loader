@@ -10,9 +10,8 @@
  * const workspace = new Workspace({
  *   // optional options
  * });
- * const { loader, diagnostics } = await workspace.createLoader({
- *   entrypoints: ["./mod.ts"]
- * });
+ * const loader = await workspace.createLoader();
+ * const diagnostics = await loader.addEntrypoints(["./mod.ts"])
  * if (diagnostics.length > 0) {
  *   throw new Error(diagnostics[0].message);
  * }
@@ -66,12 +65,6 @@ export interface WorkspaceOptions {
   preserveJsx?: boolean;
   /** Skip transpiling TypeScript and JSX. */
   noTranspile?: boolean;
-}
-
-/** Options for loading. */
-export interface LoaderOptions {
-  /** Entrypoints to create the loader for. */
-  entrypoints: string[];
 }
 
 /** File type. */
@@ -156,20 +149,9 @@ export class Workspace implements Disposable {
   }
 
   /** Creates a loader that uses this this workspace. */
-  async createLoader(
-    options: LoaderOptions,
-  ): Promise<{ loader: Loader; diagnostics: EntrypointDiagnostic[] }> {
-    if (this.#debug) {
-      console.error(
-        `Creating loader for entrypoints:\n  ${
-          options.entrypoints.join("\n  ")
-        }`,
-      );
-    }
+  async createLoader(): Promise<Loader> {
     const wasmLoader = await this.#inner.create_loader();
-    const loader = new Loader(wasmLoader, this.#debug);
-    const diagnostics = await loader.addEntrypoints(options.entrypoints);
-    return { loader, diagnostics };
+    return new Loader(wasmLoader, this.#debug);
   }
 }
 
@@ -202,11 +184,11 @@ export class Loader implements Disposable {
     this.#inner.free();
   }
 
-  /** Adds additional entrypoints to the loader after the fact.
+  /** Adds entrypoints to the loader.
    *
-   * This may be useful for having a JSR specifier asynchronously
-   * stored in the internal module graph on the fly, which will allow
-   * it to be synchronously resolved.
+   * It's useful to specify entrypoints so that the loader can resolve
+   * npm: and jsr: specifiers the same way that Deno does when not using
+   * a lockfile.
    */
   async addEntrypoints(
     entrypoints: string[],
