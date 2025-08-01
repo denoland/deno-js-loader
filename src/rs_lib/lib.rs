@@ -1,6 +1,7 @@
 mod http_client;
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -319,7 +320,9 @@ impl DenoWorkspace {
       parsed_source_cache: self.resolver_factory.parsed_source_cache().clone(),
       module_loader: self.resolver_factory.module_loader()?.clone(),
       task_queue: Default::default(),
-      graph: deno_graph::ModuleGraph::new(deno_graph::GraphKind::CodeOnly),
+      graph: ModuleGraphCell::new(deno_graph::ModuleGraph::new(
+        deno_graph::GraphKind::CodeOnly,
+      )),
     })
   }
 }
@@ -338,7 +341,7 @@ pub struct DenoLoader {
   module_loader: Arc<ModuleLoader<RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
-  graph: ModuleGraph,
+  graph: ModuleGraphCell,
   task_queue: Rc<deno_unsync::TaskQueue>,
 }
 
@@ -353,27 +356,21 @@ impl DenoLoader {
   pub fn get_graph(&self) -> JsValue {
     let serializer =
       serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-    self.graph.serialize(&serializer).unwrap()
+    self.graph.get().serialize(&serializer).unwrap()
   }
 
   pub async fn add_entrypoints(
-    &mut self,
+    &self,
     entrypoints: Vec<String>,
   ) -> Result<Vec<String>, JsValue> {
-    // only allow one async task to modify the graph at a time
-    let task_queue = self.task_queue.clone();
-    task_queue
-      .run(async {
-        self
-          .add_entrypoints_internal(entrypoints)
-          .await
-          .map_err(create_js_error)
-      })
+    self
+      .add_entrypoints_internal(entrypoints)
       .await
+      .map_err(create_js_error)
   }
 
   async fn add_entrypoints_internal(
-    &mut self,
+    &self,
     entrypoints: Vec<String>,
   ) -> Result<Vec<String>, anyhow::Error> {
     let urls = entrypoints
@@ -388,6 +385,7 @@ impl DenoLoader {
     self.add_entrypoint_urls(urls.clone()).await?;
     let errors = self
       .graph
+      .get()
       .walk(
         urls.iter(),
         WalkOptions {
@@ -404,67 +402,74 @@ impl DenoLoader {
   }
 
   async fn add_entrypoint_urls(
-    &mut self,
+    &self,
     entrypoints: Vec<Url>,
   ) -> Result<(), anyhow::Error> {
-    let npm_package_info_provider = self
-      .npm_installer_factory
-      .lockfile_npm_package_info_provider()?;
-    let lockfile = self
-      .workspace_factory
-      .maybe_lockfile(npm_package_info_provider)
-      .await?;
-    let jsx_config =
-      JsxImportSourceConfigResolver::from_compiler_options_resolver(
-        &self.compiler_options_resolver,
-      )?;
+    // only allow one async task to modify the graph at a time
+    let task_queue = self.task_queue.clone();
+    task_queue
+      .run(async {
+        let npm_package_info_provider = self
+          .npm_installer_factory
+          .lockfile_npm_package_info_provider()?;
+        let lockfile = self
+          .workspace_factory
+          .maybe_lockfile(npm_package_info_provider)
+          .await?;
+        let jsx_config =
+          JsxImportSourceConfigResolver::from_compiler_options_resolver(
+            &self.compiler_options_resolver,
+          )?;
 
-    let graph_resolver = self
-      .resolver
-      .as_graph_resolver(&self.cjs_tracker, &jsx_config);
-    let loader = DenoGraphLoader::new(
-      self.file_fetcher.clone(),
-      self.workspace_factory.global_http_cache()?.clone(),
-      self.resolver_factory.in_npm_package_checker()?.clone(),
-      self.workspace_factory.sys().clone(),
-      DenoGraphLoaderOptions {
-        file_header_overrides: Default::default(),
-        permissions: None,
-      },
-    );
+        let graph_resolver = self
+          .resolver
+          .as_graph_resolver(&self.cjs_tracker, &jsx_config);
+        let loader = DenoGraphLoader::new(
+          self.file_fetcher.clone(),
+          self.workspace_factory.global_http_cache()?.clone(),
+          self.resolver_factory.in_npm_package_checker()?.clone(),
+          self.workspace_factory.sys().clone(),
+          DenoGraphLoaderOptions {
+            file_header_overrides: Default::default(),
+            permissions: None,
+          },
+        );
 
-    let mut locker = lockfile.as_ref().map(|l| l.as_deno_graph_locker());
-    let npm_resolver =
-      self.npm_installer_factory.npm_deno_graph_resolver().await?;
-    let module_analyzer = CapturingModuleAnalyzerRef {
-      store: self.parsed_source_cache.as_ref(),
-      parser: &DefaultEsParser,
-    };
-    self
-      .graph
-      .build(
-        entrypoints,
-        Vec::new(),
-        &loader,
-        deno_graph::BuildOptions {
-          is_dynamic: false,
-          skip_dynamic_deps: false,
-          module_info_cacher: Default::default(),
-          executor: Default::default(),
-          locker: locker.as_mut().map(|l| l as _),
-          file_system: self.workspace_factory.sys(),
-          jsr_url_provider: Default::default(),
-          passthrough_jsr_specifiers: false,
-          module_analyzer: &module_analyzer,
-          npm_resolver: Some(npm_resolver.as_ref()),
-          reporter: None,
-          resolver: Some(&graph_resolver),
-          unstable_bytes_imports: true,
-          unstable_text_imports: true,
-        },
-      )
-      .await;
-    Ok(())
+        let mut locker = lockfile.as_ref().map(|l| l.as_deno_graph_locker());
+        let npm_resolver =
+          self.npm_installer_factory.npm_deno_graph_resolver().await?;
+        let module_analyzer = CapturingModuleAnalyzerRef {
+          store: self.parsed_source_cache.as_ref(),
+          parser: &DefaultEsParser,
+        };
+        let mut graph = self.graph.deep_clone();
+        graph
+          .build(
+            entrypoints,
+            Vec::new(),
+            &loader,
+            deno_graph::BuildOptions {
+              is_dynamic: false,
+              skip_dynamic_deps: false,
+              module_info_cacher: Default::default(),
+              executor: Default::default(),
+              locker: locker.as_mut().map(|l| l as _),
+              file_system: self.workspace_factory.sys(),
+              jsr_url_provider: Default::default(),
+              passthrough_jsr_specifiers: false,
+              module_analyzer: &module_analyzer,
+              npm_resolver: Some(npm_resolver.as_ref()),
+              reporter: None,
+              resolver: Some(&graph_resolver),
+              unstable_bytes_imports: true,
+              unstable_text_imports: true,
+            },
+          )
+          .await;
+        self.graph.set(Rc::new(graph));
+        Ok(())
+      })
+      .await
   }
 
   pub fn resolve_sync(
@@ -494,7 +499,7 @@ impl DenoLoader {
       resolution_mode,
     )?;
     let resolved = self.resolver.resolve_with_graph(
-      &self.graph,
+      &self.graph.get(),
       &specifier,
       &referrer,
       deno_graph::Position::zeroed(),
@@ -508,7 +513,7 @@ impl DenoLoader {
   }
 
   pub async fn resolve(
-    &mut self,
+    &self,
     specifier: String,
     importer: Option<String>,
     resolution_mode: u8,
@@ -524,7 +529,7 @@ impl DenoLoader {
   }
 
   async fn resolve_inner(
-    &mut self,
+    &self,
     specifier: &str,
     importer: Option<String>,
     resolution_mode: node_resolver::ResolutionMode,
@@ -535,7 +540,7 @@ impl DenoLoader {
       resolution_mode,
     )?;
     let resolved = self.resolver.resolve_with_graph(
-      &self.graph,
+      &self.graph.get(),
       &specifier,
       &referrer,
       deno_graph::Position::zeroed(),
@@ -633,7 +638,7 @@ impl DenoLoader {
 
     match self
       .module_loader
-      .load(&self.graph, &url, None, requested_module_type)
+      .load(&self.graph.get(), &url, None, requested_module_type)
       .await
     {
       Ok(LoadedModuleOrAsset::Module(m)) => {
@@ -859,6 +864,30 @@ fn npm_system_info() -> Result<NpmSystemInfo, anyhow::Error> {
       cpu: SmallStackString::from_string(arch),
     })
   })
+}
+
+struct ModuleGraphCell {
+  graph: RefCell<Rc<ModuleGraph>>,
+}
+
+impl ModuleGraphCell {
+  pub fn new(graph: ModuleGraph) -> Self {
+    Self {
+      graph: RefCell::new(Rc::new(graph)),
+    }
+  }
+
+  pub fn deep_clone(&self) -> ModuleGraph {
+    self.graph.borrow().as_ref().clone()
+  }
+
+  pub fn get(&self) -> Rc<ModuleGraph> {
+    self.graph.borrow().clone()
+  }
+
+  pub fn set(&self, graph: Rc<ModuleGraph>) {
+    *self.graph.borrow_mut() = graph;
+  }
 }
 
 // todo(dsherret): shift this down into deno_graph
