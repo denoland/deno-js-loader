@@ -225,7 +225,7 @@ export class Loader implements Disposable {
    * entrypoints up front so the loader can create the npm and jsr graph, and then after use
    * synchronous resolution to resolve jsr and npm specifiers.
    */
-  resolve(
+  async resolve(
     specifier: string,
     referrer: string | undefined,
     resolutionMode: ResolutionMode,
@@ -237,7 +237,7 @@ export class Loader implements Disposable {
         })`,
       );
     }
-    const value = this.#inner.resolve(
+    const value = await this.#inner.resolve(
       specifier,
       referrer,
       resolutionMode,
