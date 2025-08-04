@@ -59,7 +59,13 @@ export interface WorkspaceOptions {
   platform?: "node" | "browser";
   /** Whether to force using the cache. */
   cachedOnly?: boolean;
-  /** Enable debug logs. */
+  /**
+   * Enable debug logs.
+   *
+   * @remarks Note that the Rust debug logs are enabled globally
+   * and can only be enabled by the first workspace that gets
+   * created. This is a limitation of how the Rust logging works.
+   */
   debug?: boolean;
   /** Whether to preserve JSX syntax in the loaded output. */
   preserveJsx?: boolean;
