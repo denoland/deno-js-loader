@@ -205,14 +205,14 @@ export class Loader implements Disposable {
   ): string {
     if (this.#debug) {
       console.error(
-        `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
-          resolutionModeToString(resolutionMode)
-        })`,
+        `DEBUG - Resolving '${specifier}' from '${
+          referrer ?? "<undefined>"
+        }' (${resolutionModeToString(resolutionMode)})`,
       );
     }
     const value = this.#inner.resolve_sync(specifier, referrer, resolutionMode);
     if (this.#debug) {
-      console.error(`Resolved to '${value}'`);
+      console.error(`DEBUG - Resolved to '${value}'`);
     }
     return value;
   }
@@ -232,9 +232,9 @@ export class Loader implements Disposable {
   ): Promise<string> {
     if (this.#debug) {
       console.error(
-        `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
-          resolutionModeToString(resolutionMode)
-        })`,
+        `DEBUG - Resolving '${specifier}' from '${
+          referrer ?? "<undefined>"
+        }' (${resolutionModeToString(resolutionMode)})`,
       );
     }
     const value = await this.#inner.resolve(
@@ -243,7 +243,7 @@ export class Loader implements Disposable {
       resolutionMode,
     );
     if (this.#debug) {
-      console.error(`Resolved to '${value}'`);
+      console.error(`DEBUG - Resolved to '${value}'`);
     }
     return value;
   }
@@ -255,7 +255,7 @@ export class Loader implements Disposable {
   ): Promise<LoadResponse> {
     if (this.#debug) {
       console.error(
-        `Loading '${specifier}' with type '${
+        `DEBUG - Loading '${specifier}' with type '${
           requestedModuleTypeToString(requestedModuleType) ?? "<default>"
         }'`,
       );

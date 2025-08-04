@@ -1877,6 +1877,7 @@ dependencies = [
  "deno_semver",
  "deno_unsync",
  "js-sys",
+ "log",
  "node_resolver",
  "serde",
  "serde-wasm-bindgen",

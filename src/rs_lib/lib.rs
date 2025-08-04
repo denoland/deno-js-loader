@@ -6,6 +6,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use anyhow::Context;
 use anyhow::bail;
@@ -56,6 +57,9 @@ use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
 use js_sys::Object;
 use js_sys::Uint8Array;
+use log::LevelFilter;
+use log::Metadata;
+use log::Record;
 use node_resolver::NodeConditionOptions;
 use node_resolver::NodeResolverOptions;
 use node_resolver::PackageJsonThreadLocalCache;
@@ -77,6 +81,31 @@ extern "C" {
   static PROCESS_GLOBAL: JsValue;
   #[wasm_bindgen(js_namespace = console)]
   fn error(s: &JsValue);
+}
+
+static GLOBAL_LOGGER: OnceLock<Logger> = OnceLock::new();
+
+struct Logger {
+  debug: bool,
+}
+
+impl log::Log for Logger {
+  fn enabled(&self, metadata: &Metadata) -> bool {
+    metadata.level() <= log::Level::Info
+      || metadata.level() == log::Level::Debug && self.debug
+  }
+
+  fn log(&self, record: &Record) {
+    if self.enabled(record.metadata()) {
+      error(&JsValue::from(format!(
+        "{} RS - {}",
+        record.level(),
+        record.args()
+      )));
+    }
+  }
+
+  fn flush(&self) {}
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +162,8 @@ pub struct DenoWorkspaceOptions {
   pub preserve_jsx: Option<bool>,
   #[serde(default)]
   pub no_transpile: Option<bool>,
+  #[serde(default)]
+  pub debug: Option<bool>,
 }
 
 #[wasm_bindgen]
@@ -175,6 +206,16 @@ impl DenoWorkspace {
         None => false,
       })
     }
+
+    let debug = options.debug.unwrap_or(false);
+    let logger = GLOBAL_LOGGER.get_or_init(|| Logger { debug });
+    _ = log::set_logger(logger).map(|()| {
+      log::set_max_level(if debug {
+        LevelFilter::Debug
+      } else {
+        LevelFilter::Info
+      })
+    });
 
     let sys = RealSys;
     let cwd = sys.env_current_dir()?;
