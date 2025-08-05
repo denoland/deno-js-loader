@@ -12,7 +12,7 @@ path = "lib.rs"
 anyhow = "1.0.57"
 console_error_panic_hook = "0.1.6"
 js-sys = "=0.3.77"
-log = "0.4"
+log = "0.4.20"
 serde = "1.0.149"
 serde-wasm-bindgen = "=0.6.5"
 wasm-bindgen = "=0.2.100"
@@ -36,7 +36,7 @@ path = "../../deno/libs/config"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]
-version = "=0.98.0"
+version = "=0.98.1"
 features = ["swc"]
 default-features = false
 
