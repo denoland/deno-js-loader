@@ -30,7 +30,7 @@ jobs:
           git config user.email "denobot@users.noreply.github.com"
           git config user.name "denobot"
           deno run -A ./scripts/update-deps.ts
-          deno task wasmbuild
+          deno task build
           deno test -A
           deno run -A ./scripts/commit.ts
 
