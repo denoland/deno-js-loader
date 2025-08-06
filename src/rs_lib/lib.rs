@@ -484,6 +484,11 @@ impl DenoLoader {
           parser: &DefaultEsParser,
         };
         let mut graph = self.graph.deep_clone();
+        if graph.roots.is_empty() {
+          if let Some(lockfile) = lockfile {
+            lockfile.fill_graph(&mut graph);
+          }
+        }
         graph
           .build(
             entrypoints,
