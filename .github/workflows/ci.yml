@@ -19,12 +19,18 @@ jobs:
         os: [macOS-latest, ubuntu-latest, windows-latest]
 
     steps:
+      - name: Change Windows git settings
+        if: contains(matrix.os, 'windows')
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol native
       - uses: actions/checkout@v4
         with:
           submodules: true
 
       - uses: denoland/setup-deno@v2
         with:
+          cache: true
           deno-version: canary
 
       - uses: Swatinem/rust-cache@v2
