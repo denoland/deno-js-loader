@@ -7,7 +7,7 @@ import {
   type WorkspaceOptions,
 } from "../helpers.ts";
 
-Deno.test("loads jsx transpiled", async () => {
+Deno.test("loads bytes and text in npm packages", async () => {
   const mainTs = import.meta.dirname + "/testdata/main.ts";
   const createWorkspace = async (options?: WorkspaceOptions) => {
     return await createLoader({

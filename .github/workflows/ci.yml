@@ -11,16 +11,26 @@ jobs:
     if: |
       github.event_name == 'push' ||
       !startsWith(github.event.pull_request.head.label, 'denoland:')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
+    strategy:
+      matrix:
+        os: [macOS-latest, ubuntu-latest, windows-latest]
+
     steps:
+      - name: Change Windows git settings
+        if: contains(matrix.os, 'windows')
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol native
       - uses: actions/checkout@v4
         with:
           submodules: true
 
       - uses: denoland/setup-deno@v2
         with:
+          cache: true
           deno-version: canary
 
       - uses: Swatinem/rust-cache@v2
@@ -31,9 +41,11 @@ jobs:
         run: deno task build
 
       - name: fmt
+        if: contains(matrix.os, 'ubuntu')
         run: deno fmt --check
 
       - name: lint
+        if: contains(matrix.os, 'ubuntu')
         run: deno lint
 
       - name: check
