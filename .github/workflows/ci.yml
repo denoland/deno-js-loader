@@ -35,9 +35,11 @@ jobs:
         run: deno task build
 
       - name: fmt
+        if: contains(matrix.os, 'ubuntu')
         run: deno fmt --check
 
       - name: lint
+        if: contains(matrix.os, 'ubuntu')
         run: deno lint
 
       - name: check
