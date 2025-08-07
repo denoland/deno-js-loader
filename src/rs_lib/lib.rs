@@ -284,7 +284,7 @@ impl DenoWorkspace {
           typescript_version: None,
         },
         node_analysis_cache: None,
-        node_code_translator_mode: NodeCodeTranslatorMode::Bundling,
+        node_code_translator_mode: NodeCodeTranslatorMode::Disabled,
         node_resolution_cache: Some(Arc::new(NodeResolutionThreadLocalCache)),
         package_json_cache: Some(Arc::new(PackageJsonThreadLocalCache)),
         package_json_dep_resolution: None,
