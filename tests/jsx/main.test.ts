@@ -5,7 +5,7 @@ import {
   ResolutionMode,
   type WorkspaceOptions,
 } from "../helpers.ts";
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 
 Deno.test("loads jsx transpiled", async () => {
   const mainJsx = import.meta.dirname + "/testdata/main.jsx";
@@ -24,8 +24,16 @@ Deno.test("loads jsx transpiled", async () => {
     "//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4uanN4Il0sInNvdXJjZXNDb250ZW50IjpbImNvbnNvbGUubG9nKDxkaXYgLz4pO1xuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7Ozs7QUFBQSxRQUFRLEdBQUcifQ==";
   const mainTsxSourceMappingURL =
     "//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIm1haW4udHN4Il0sInNvdXJjZXNDb250ZW50IjpbImNvbnN0IHZhbHVlOiBzdHJpbmcgPSBcIlwiO1xuY29uc29sZS5sb2coPGRpdiAvPiwgdmFsdWUpO1xuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLE1BQU0sUUFBZ0I7QUFDdEIsUUFBUSxHQUFHLEVBQUUsT0FBUSJ9";
-  const mainJsxUrl = loader.resolve(mainJsx, undefined, ResolutionMode.Import);
-  const mainTsxUrl = loader.resolve(mainTsx, undefined, ResolutionMode.Import);
+  const mainJsxUrl = loader.resolveSync(
+    mainJsx,
+    undefined,
+    ResolutionMode.Import,
+  );
+  const mainTsxUrl = loader.resolveSync(
+    mainTsx,
+    undefined,
+    ResolutionMode.Import,
+  );
 
   assertResponseText(
     await loader.load(mainJsxUrl, RequestedModuleType.Default),
@@ -38,7 +46,7 @@ ${mainJsxSourceMappingURL}`,
   );
 
   // resolves jsx-dev
-  const jsx = loader.resolve(
+  const jsx = loader.resolveSync(
     "react/jsx-dev-runtime",
     mainTsx,
     ResolutionMode.Import,
@@ -47,9 +55,9 @@ ${mainJsxSourceMappingURL}`,
 
   {
     const { workspace } = await createWorkspace({ preserveJsx: true });
-    const newLoader = await workspace.createLoader({
-      entrypoints: [mainJsx, mainTsxUrl],
-    });
+    const newLoader = await workspace.createLoader();
+    const diagnostics = await newLoader.addEntrypoints([mainJsx, mainTsxUrl]);
+    assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
       "console.log(<div />);\n",
@@ -61,9 +69,9 @@ ${mainJsxSourceMappingURL}`,
   }
   {
     const { workspace } = await createWorkspace({ noTranspile: true });
-    const newLoader = await workspace.createLoader({
-      entrypoints: [mainJsx, mainTsx],
-    });
+    const newLoader = await workspace.createLoader();
+    const diagnostics = await newLoader.addEntrypoints([mainJsx, mainTsx]);
+    assertEquals(diagnostics, []);
     assertResponseText(
       await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
       `console.log(<div />);\n`,

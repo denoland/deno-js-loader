@@ -32,7 +32,7 @@ jobs:
           workspaces: src/rs_lib
 
       - name: build
-        run: deno task wasmbuild
+        run: deno task build
 
       - name: fmt
         run: deno fmt --check
@@ -62,6 +62,6 @@ jobs:
         with:
           workspaces: src/rs_lib
       - name: build
-        run: deno task wasmbuild
+        run: deno task build
       - name: Publish to JSR on tag
         run: deno run -A jsr:@david/publish-on-tag@0.2.0

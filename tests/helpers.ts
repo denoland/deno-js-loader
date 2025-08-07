@@ -1,5 +1,4 @@
 import {
-  type LoaderOptions,
   type LoadResponse,
   type ModuleLoadResponse,
   Workspace,
@@ -11,13 +10,30 @@ export * from "@deno/loader";
 
 export async function createLoader(
   workspaceOptions: WorkspaceOptions,
-  loaderOptions: LoaderOptions,
+  loaderOptions: { entrypoints: string[] },
 ) {
-  const workspace = new Workspace(workspaceOptions);
-  const loader = await workspace.createLoader(loaderOptions);
+  const { loader, workspace, diagnostics } = await createLoaderWithDiagnostics(
+    workspaceOptions,
+    loaderOptions,
+  );
+  assertEquals(diagnostics, []);
   return {
     loader,
     workspace,
+  };
+}
+
+export async function createLoaderWithDiagnostics(
+  workspaceOptions: WorkspaceOptions,
+  loaderOptions: { entrypoints: string[] },
+) {
+  const workspace = new Workspace(workspaceOptions);
+  const loader = await workspace.createLoader();
+  const diagnostics = await loader.addEntrypoints(loaderOptions.entrypoints);
+  return {
+    loader,
+    workspace,
+    diagnostics,
   };
 }
 

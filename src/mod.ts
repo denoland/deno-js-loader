@@ -10,10 +10,14 @@
  * const workspace = new Workspace({
  *   // optional options
  * });
- * const loader = await workspace.createLoader({
- *   entrypoints: ["./mod.ts"]
- * });
- * const resolvedUrl = loader.resolve(
+ * const loader = await workspace.createLoader();
+ * const diagnostics = await loader.addEntrypoints(["./mod.ts"])
+ * if (diagnostics.length > 0) {
+ *   throw new Error(diagnostics[0].message);
+ * }
+ * // alternatively use resolve to resolve npm/jsr specifiers not found
+ * // in the entrypoints or if not being able to provide entrypoints
+ * const resolvedUrl = loader.resolveSync(
  *   "./mod.test.ts",
  *   "https://deno.land/mod.ts", // referrer
  *   ResolutionMode.Import,
@@ -44,24 +48,29 @@ export interface WorkspaceOptions {
   noConfig?: boolean;
   /** Do not respect the lockfile. */
   noLock?: boolean;
-  /** Path to the config file if you do not want to do config file discovery. */
+  /** Path or file: URL to the config file if you do not want to do config file discovery. */
   configPath?: string;
   /** Node resolution conditions to use for resolving package.json exports. */
   nodeConditions?: string[];
+  /**
+   * Platform to bundle for.
+   * @default "node"
+   */
+  platform?: "node" | "browser";
   /** Whether to force using the cache. */
   cachedOnly?: boolean;
-  /** Enable debug logs. */
+  /**
+   * Enable debug logs.
+   *
+   * @remarks Note that the Rust debug logs are enabled globally
+   * and can only be enabled by the first workspace that gets
+   * created. This is a limitation of how the Rust logging works.
+   */
   debug?: boolean;
   /** Whether to preserve JSX syntax in the loaded output. */
   preserveJsx?: boolean;
   /** Skip transpiling TypeScript and JSX. */
   noTranspile?: boolean;
-}
-
-/** Options for loading. */
-export interface LoaderOptions {
-  /** Entrypoints to create the loader for. */
-  entrypoints: string[];
 }
 
 /** File type. */
@@ -146,16 +155,8 @@ export class Workspace implements Disposable {
   }
 
   /** Creates a loader that uses this this workspace. */
-  async createLoader(options: LoaderOptions): Promise<Loader> {
-    if (this.#debug) {
-      console.error(
-        `Creating loader for entrypoints:\n  ${
-          options.entrypoints.join("\n  ")
-        }`,
-      );
-    }
+  async createLoader(): Promise<Loader> {
     const wasmLoader = await this.#inner.create_loader();
-    await wasmLoader.add_roots(options.entrypoints);
     return new Loader(wasmLoader, this.#debug);
   }
 }
@@ -165,6 +166,10 @@ export enum RequestedModuleType {
   Json = 1,
   Text = 2,
   Bytes = 3,
+}
+
+export interface EntrypointDiagnostic {
+  message: string;
 }
 
 /** A loader for resolving and loading urls. */
@@ -185,22 +190,66 @@ export class Loader implements Disposable {
     this.#inner.free();
   }
 
-  /** Resolves a specifier using the given referrer and resolution mode. */
-  resolve(
+  /** Adds entrypoints to the loader.
+   *
+   * It's useful to specify entrypoints so that the loader can resolve
+   * npm: and jsr: specifiers the same way that Deno does when not using
+   * a lockfile.
+   */
+  async addEntrypoints(
+    entrypoints: string[],
+  ): Promise<EntrypointDiagnostic[]> {
+    const messages = await this.#inner.add_entrypoints(entrypoints);
+    return messages.map((message) => ({ message }));
+  }
+
+  /** Synchronously resolves a specifier using the given referrer and resolution mode. */
+  resolveSync(
     specifier: string,
     referrer: string | undefined,
     resolutionMode: ResolutionMode,
   ): string {
     if (this.#debug) {
       console.error(
-        `Resolving '${specifier}' from '${referrer ?? "<undefined>"}' (${
-          resolutionModeToString(resolutionMode)
-        })`,
+        `DEBUG - Resolving '${specifier}' from '${
+          referrer ?? "<undefined>"
+        }' (${resolutionModeToString(resolutionMode)})`,
       );
     }
-    const value = this.#inner.resolve(specifier, referrer, resolutionMode);
+    const value = this.#inner.resolve_sync(specifier, referrer, resolutionMode);
     if (this.#debug) {
-      console.error(`Resolved to '${value}'`);
+      console.error(`DEBUG - Resolved to '${value}'`);
+    }
+    return value;
+  }
+
+  /** Asynchronously resolves a specifier using the given referrer and resolution mode.
+   *
+   * This is useful for resolving `jsr:` and `npm:` specifiers on the fly when they can't
+   * be figured out from entrypoints, but it may cause multiple "npm install"s and different
+   * npm or jsr resolution than Deno. For that reason it's better to provide the list of
+   * entrypoints up front so the loader can create the npm and jsr graph, and then after use
+   * synchronous resolution to resolve jsr and npm specifiers.
+   */
+  async resolve(
+    specifier: string,
+    referrer: string | undefined,
+    resolutionMode: ResolutionMode,
+  ): Promise<string> {
+    if (this.#debug) {
+      console.error(
+        `DEBUG - Resolving '${specifier}' from '${
+          referrer ?? "<undefined>"
+        }' (${resolutionModeToString(resolutionMode)})`,
+      );
+    }
+    const value = await this.#inner.resolve(
+      specifier,
+      referrer,
+      resolutionMode,
+    );
+    if (this.#debug) {
+      console.error(`DEBUG - Resolved to '${value}'`);
     }
     return value;
   }
@@ -212,7 +261,7 @@ export class Loader implements Disposable {
   ): Promise<LoadResponse> {
     if (this.#debug) {
       console.error(
-        `Loading '${specifier}' with type '${
+        `DEBUG - Loading '${specifier}' with type '${
           requestedModuleTypeToString(requestedModuleType) ?? "<default>"
         }'`,
       );

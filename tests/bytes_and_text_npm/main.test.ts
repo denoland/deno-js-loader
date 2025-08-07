@@ -19,8 +19,12 @@ Deno.test("loads jsx transpiled", async () => {
   };
   const { loader } = await createWorkspace();
 
-  const mainTsUrl = loader.resolve(mainTs, undefined, ResolutionMode.Import);
-  const dataFileUrl = loader.resolve(
+  const mainTsUrl = loader.resolveSync(
+    mainTs,
+    undefined,
+    ResolutionMode.Import,
+  );
+  const dataFileUrl = loader.resolveSync(
     "package/data.txt",
     mainTsUrl,
     ResolutionMode.Import,
