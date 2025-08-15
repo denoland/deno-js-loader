@@ -68,10 +68,10 @@ Deno.test("error has extra properties", async (t) => {
     assert(err.isOptionalDependency);
   });
 
-  await t.step("isOptionalDependency - folder package json", async () => {
-    const err = await assertRejects(
+  await t.step("isOptionalDependency - folder package json", () => {
+    const err = assertThrows(
       () =>
-        loader.resolve(
+        loader.resolveSync(
           "optional",
           import.meta.resolve(
             "./testdata/node_modules/optional-dep/sub/index.js",
