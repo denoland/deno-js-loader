@@ -1,5 +1,5 @@
-import { assertEquals, assertThrows } from "@std/assert";
-import { createLoader, ResolutionMode } from "../helpers.ts";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { createLoader, ResolutionMode, ResolveError } from "../helpers.ts";
 
 Deno.test("error has extra properties", async (t) => {
   const mainFile = import.meta.dirname + "/testdata/main.ts";
@@ -15,22 +15,23 @@ Deno.test("error has extra properties", async (t) => {
         "export-package/non-existent",
         import.meta.resolve("./testdata/main.ts"),
         ResolutionMode.Import,
-      )
-    );
-    assertEquals((err as any).code, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+      ), ResolveError);
+    assertEquals(err.code, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   });
 
-  await t.step("specifier", () => {
-    const err = assertThrows(() =>
-      loader.resolveSync(
-        "open-package/non-existent.js",
-        import.meta.resolve("./testdata/main.ts"),
-        ResolutionMode.Import,
-      )
+  await t.step("specifier", async () => {
+    const err = await assertRejects(
+      () =>
+        loader.resolve(
+          "open-package/non-existent.js",
+          import.meta.resolve("./testdata/main.ts"),
+          ResolutionMode.Import,
+        ),
+      ResolveError,
     );
-    assertEquals((err as any).code, "ERR_MODULE_NOT_FOUND");
+    assertEquals(err.code, "ERR_MODULE_NOT_FOUND");
     assertEquals(
-      (err as any).specifier,
+      err.specifier,
       import.meta.resolve(
         "./testdata/node_modules/open-package/non-existent.js",
       ),
