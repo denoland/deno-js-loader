@@ -83,6 +83,8 @@ export class ResolveError extends Error {
   specifier?: string;
   /** Node.js error code. */
   code?: string;
+  /** If this is an optional dependency. */
+  isOptionalDependency?: boolean;
 }
 
 /** File type. */
