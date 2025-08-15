@@ -178,7 +178,7 @@ pub struct DenoWorkspaceOptions {
 pub struct DenoWorkspace {
   http_client: WasmHttpClient,
   npm_installer_factory:
-    Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
+    Rc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
 }
@@ -303,7 +303,7 @@ impl DenoWorkspace {
       },
     ));
     let http_client = WasmHttpClient::default();
-    let npm_installer_factory = Arc::new(NpmInstallerFactory::new(
+    let npm_installer_factory = Rc::new(NpmInstallerFactory::new(
       resolver_factory.clone(),
       Arc::new(http_client.clone()),
       Arc::new(NullLifecycleScriptsExecutor),
@@ -386,7 +386,7 @@ pub struct DenoLoader {
     Arc<PermissionedFileFetcher<NullBlobStore, RealSys, WasmHttpClient>>,
   emitter: Arc<Emitter<DenoInNpmPackageChecker, RealSys>>,
   npm_installer_factory:
-    Arc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
+    Rc<NpmInstallerFactory<WasmHttpClient, ConsoleLogReporter, RealSys>>,
   parsed_source_cache: Arc<ParsedSourceCache>,
   module_loader: Arc<ModuleLoader<RealSys>>,
   resolver_factory: Arc<ResolverFactory<RealSys>>,
@@ -493,10 +493,10 @@ impl DenoLoader {
           parser: &DefaultEsParser,
         };
         let mut graph = self.graph.deep_clone();
-        if graph.roots.is_empty() {
-          if let Some(lockfile) = lockfile {
-            lockfile.fill_graph(&mut graph);
-          }
+        if graph.roots.is_empty()
+          && let Some(lockfile) = lockfile
+        {
+          lockfile.fill_graph(&mut graph);
         }
         graph
           .build(
@@ -590,7 +590,7 @@ impl DenoLoader {
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
     let (specifier, referrer) = self.resolve_specifier_and_referrer(
-      &specifier,
+      specifier,
       importer.clone(),
       resolution_mode,
     )?;
@@ -755,16 +755,16 @@ impl DenoLoader {
             }
           }
         }
-        _ => return Err(err.into()),
+        _ => Err(err.into()),
       },
     }
   }
 
-  async fn maybe_transpile<'a>(
+  async fn maybe_transpile(
     &self,
     specifier: &Url,
     media_type: MediaType,
-    source: &'a Arc<str>,
+    source: &Arc<str>,
     is_known_script: Option<bool>,
   ) -> Result<Arc<str>, anyhow::Error> {
     let parsed_source = self.parsed_source_cache.get_matching_parsed_source(
@@ -920,14 +920,14 @@ fn create_js_error(err: anyhow::Error) -> JsValue {
         &JsValue::from_str(code),
       );
     }
-    if let Some(specifier) = err.maybe_specifier() {
-      if let Ok(url) = specifier.into_owned().into_url() {
-        _ = js_sys::Reflect::set(
-          &err_value,
-          &JsValue::from_str("specifier"),
-          &JsValue::from_str(url.as_str()),
-        );
-      }
+    if let Some(specifier) = err.maybe_specifier()
+      && let Ok(url) = specifier.into_owned().into_url()
+    {
+      _ = js_sys::Reflect::set(
+        &err_value,
+        &JsValue::from_str("specifier"),
+        &JsValue::from_str(url.as_str()),
+      );
     }
   }
   err_value
