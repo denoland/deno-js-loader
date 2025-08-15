@@ -72,6 +72,7 @@ use node_resolver::NodeResolverOptions;
 use node_resolver::PackageJsonThreadLocalCache;
 use node_resolver::analyze::NodeCodeTranslatorMode;
 use node_resolver::cache::NodeResolutionThreadLocalCache;
+use node_resolver::errors::NodeJsErrorCode;
 use node_resolver::errors::NodeJsErrorCoded;
 use serde::Deserialize;
 use serde::Serialize;
@@ -196,11 +197,11 @@ impl DenoWorkspace {
     console_error_panic_hook::set_once();
     let options = serde_wasm_bindgen::from_value(options).map_err(|err| {
       create_js_error(
-        anyhow::anyhow!("{}", err)
+        &anyhow::anyhow!("{}", err)
           .context("Failed deserializing workspace options."),
       )
     })?;
-    Self::new_inner(options).map_err(create_js_error)
+    Self::new_inner(options).map_err(|e| create_js_error(&e))
   }
 
   fn new_inner(options: DenoWorkspaceOptions) -> Result<Self, anyhow::Error> {
@@ -336,7 +337,10 @@ impl DenoWorkspace {
   }
 
   pub async fn create_loader(&self) -> Result<DenoLoader, JsValue> {
-    self.create_loader_inner().await.map_err(create_js_error)
+    self
+      .create_loader_inner()
+      .await
+      .map_err(|e| create_js_error(&e))
   }
 
   async fn create_loader_inner(&self) -> Result<DenoLoader, anyhow::Error> {
@@ -416,7 +420,7 @@ impl DenoLoader {
     self
       .add_entrypoints_internal(entrypoints)
       .await
-      .map_err(create_js_error)
+      .map_err(|e| create_js_error(&e))
   }
 
   async fn add_entrypoints_internal(
@@ -533,19 +537,24 @@ impl DenoLoader {
     importer: Option<String>,
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
+    let importer = self
+      .resolve_provided_referrer(importer)
+      .map_err(|e| create_js_error(&e))?;
     self
       .resolve_sync_inner(
         &specifier,
-        importer,
+        importer.as_ref(),
         parse_resolution_mode(resolution_mode),
       )
-      .map_err(create_js_error)
+      .map_err(|err| {
+        self.create_resolve_js_error(&err, &specifier, importer.as_ref())
+      })
   }
 
   fn resolve_sync_inner(
     &self,
     specifier: &str,
-    importer: Option<String>,
+    importer: Option<&Url>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
     let (specifier, referrer) = self.resolve_specifier_and_referrer(
@@ -573,25 +582,30 @@ impl DenoLoader {
     importer: Option<String>,
     resolution_mode: u8,
   ) -> Result<String, JsValue> {
+    let importer = self
+      .resolve_provided_referrer(importer)
+      .map_err(|e| create_js_error(&e))?;
     self
       .resolve_inner(
         &specifier,
-        importer,
+        importer.as_ref(),
         parse_resolution_mode(resolution_mode),
       )
       .await
-      .map_err(create_js_error)
+      .map_err(|err| {
+        self.create_resolve_js_error(&err, &specifier, importer.as_ref())
+      })
   }
 
   async fn resolve_inner(
     &self,
     specifier: &str,
-    importer: Option<String>,
+    importer: Option<&Url>,
     resolution_mode: node_resolver::ResolutionMode,
   ) -> Result<String, anyhow::Error> {
     let (specifier, referrer) = self.resolve_specifier_and_referrer(
       specifier,
-      importer.clone(),
+      importer,
       resolution_mode,
     )?;
     let resolved = self.resolver.resolve_with_graph(
@@ -618,24 +632,11 @@ impl DenoLoader {
   fn resolve_specifier_and_referrer<'a>(
     &self,
     specifier: &'a str,
-    importer: Option<String>,
+    referrer: Option<&'a Url>,
     resolution_mode: node_resolver::ResolutionMode,
-  ) -> Result<(Cow<'a, str>, Url), anyhow::Error> {
-    let importer = importer.filter(|v| !v.is_empty());
-    Ok(match importer {
-      Some(referrer)
-        if referrer.starts_with("http:")
-          || referrer.starts_with("https:")
-          || referrer.starts_with("file:") =>
-      {
-        (Cow::Borrowed(specifier), Url::parse(&referrer)?)
-      }
-      Some(referrer) => (
-        Cow::Borrowed(specifier),
-        deno_path_util::url_from_file_path(
-          &sys_traits::impls::wasm_string_to_path(referrer),
-        )?,
-      ),
+  ) -> Result<(Cow<'a, str>, Cow<'a, Url>), anyhow::Error> {
+    Ok(match referrer {
+      Some(referrer) => (Cow::Borrowed(specifier), Cow::Borrowed(referrer)),
       None => {
         let entrypoint = Cow::Owned(
           self
@@ -644,11 +645,31 @@ impl DenoLoader {
         );
         (
           entrypoint,
-          deno_path_util::url_from_directory_path(
+          Cow::Owned(deno_path_util::url_from_directory_path(
             self.workspace_factory.initial_cwd(),
-          )?,
+          )?),
         )
       }
+    })
+  }
+
+  fn resolve_provided_referrer(
+    &self,
+    importer: Option<String>,
+  ) -> Result<Option<Url>, anyhow::Error> {
+    let importer = importer.filter(|v| !v.is_empty());
+    Ok(match importer {
+      Some(referrer)
+        if referrer.starts_with("http:")
+          || referrer.starts_with("https:")
+          || referrer.starts_with("file:") =>
+      {
+        Some(Url::parse(&referrer)?)
+      }
+      Some(referrer) => Some(deno_path_util::url_from_file_path(
+        &sys_traits::impls::wasm_string_to_path(referrer),
+      )?),
+      None => None,
     })
   }
 
@@ -663,7 +684,7 @@ impl DenoLoader {
       2 => RequestedModuleType::Text,
       3 => RequestedModuleType::Bytes,
       _ => {
-        return Err(create_js_error(anyhow::anyhow!(
+        return Err(create_js_error(&anyhow::anyhow!(
           "Invalid requested module type: {}",
           requested_module_type
         )));
@@ -672,7 +693,7 @@ impl DenoLoader {
     self
       .load_inner(url, &requested_module_type)
       .await
-      .map_err(create_js_error)
+      .map_err(|err| create_js_error(&err))
   }
 
   async fn load_inner(
@@ -811,19 +832,92 @@ impl DenoLoader {
       node_resolver::NodeResolutionKind::Execution,
     )?)
   }
+
+  fn is_optional_npm_dep(&self, specifier: &str, referrer: &Url) -> bool {
+    let Ok(referrer_path) = deno_path_util::url_to_file_path(referrer) else {
+      return false;
+    };
+    for result in self
+      .resolver_factory
+      .pkg_json_resolver()
+      .get_closest_package_jsons(&referrer_path)
+    {
+      let Ok(pkg_json) = result else {
+        continue;
+      };
+      if let Some(optional_deps) = &pkg_json.optional_dependencies
+        && optional_deps.contains_key(specifier)
+      {
+        return true;
+      }
+      if let Some(meta) = &pkg_json.peer_dependencies_meta
+        && let Some(obj) = meta.get(specifier)
+        && let Some(value) = obj.get("optional")
+        && let Some(is_optional) = value.as_bool()
+        && is_optional
+      {
+        return true;
+      }
+      if let Some(deps) = &pkg_json.dependencies
+        && deps.contains_key(specifier)
+      {
+        return false;
+      }
+      if let Some(deps) = &pkg_json.peer_dependencies
+        && deps.contains_key(specifier)
+      {
+        return false;
+      }
+    }
+    false
+  }
+
+  fn create_resolve_js_error(
+    &self,
+    err: &anyhow::Error,
+    specifier: &str,
+    maybe_referrer: Option<&Url>,
+  ) -> JsValue {
+    let err_value = create_js_error(err);
+    if let Some(err) = err.downcast_ref::<ResolveWithGraphError>() {
+      if let Some(code) = resolve_with_graph_error_code(err) {
+        _ = js_sys::Reflect::set(
+          &err_value,
+          &JsValue::from_str("code"),
+          &JsValue::from_str(code.as_str()),
+        );
+        if code == NodeJsErrorCode::ERR_MODULE_NOT_FOUND
+          && let Some(referrer) = maybe_referrer
+          && self.is_optional_npm_dep(specifier, referrer)
+        {
+          _ = js_sys::Reflect::set(
+            &err_value,
+            &JsValue::from_str("isOptionalDependency"),
+            &JsValue::from_bool(true),
+          );
+        }
+      }
+      if let Some(specifier) = err.maybe_specifier()
+        && let Ok(url) = specifier.into_owned().into_url()
+      {
+        _ = js_sys::Reflect::set(
+          &err_value,
+          &JsValue::from_str("specifier"),
+          &JsValue::from_str(url.as_str()),
+        );
+      }
+    }
+    err_value
+  }
 }
 
 fn resolve_with_graph_error_code(
   err: &ResolveWithGraphError,
-) -> Option<&'static str> {
+) -> Option<NodeJsErrorCode> {
   match err.as_kind() {
-    ResolveWithGraphErrorKind::CouldNotResolveNpmNv(err) => {
-      Some(err.code().as_str())
-    }
+    ResolveWithGraphErrorKind::CouldNotResolveNpmNv(err) => Some(err.code()),
     ResolveWithGraphErrorKind::ResolvePkgFolderFromDenoModule(_) => None,
-    ResolveWithGraphErrorKind::ResolveNpmReqRef(err) => {
-      err.err.maybe_code().map(|c| c.as_str())
-    }
+    ResolveWithGraphErrorKind::ResolveNpmReqRef(err) => err.err.maybe_code(),
     ResolveWithGraphErrorKind::Resolution(err) => err
       .source()
       .and_then(|s| s.downcast_ref::<DenoResolveError>())
@@ -833,7 +927,7 @@ fn resolve_with_graph_error_code(
   }
 }
 
-fn deno_resolve_error_code(err: &DenoResolveError) -> Option<&'static str> {
+fn deno_resolve_error_code(err: &DenoResolveError) -> Option<NodeJsErrorCode> {
   match err.as_kind() {
     DenoResolveErrorKind::InvalidVendorFolderImport
     | DenoResolveErrorKind::UnsupportedPackageJsonFileSpecifier
@@ -843,10 +937,8 @@ fn deno_resolve_error_code(err: &DenoResolveError) -> Option<&'static str> {
       | MappedResolutionError::ImportMap(_)
       | MappedResolutionError::Workspace(_) => None,
     },
-    DenoResolveErrorKind::Node(err) => err.maybe_code().map(|c| c.as_str()),
-    DenoResolveErrorKind::ResolveNpmReqRef(err) => {
-      err.err.maybe_code().map(|c| c.as_str())
-    }
+    DenoResolveErrorKind::Node(err) => err.maybe_code(),
+    DenoResolveErrorKind::ResolveNpmReqRef(err) => err.err.maybe_code(),
     DenoResolveErrorKind::NodeModulesOutOfDate(_)
     | DenoResolveErrorKind::PackageJsonDepValueParse(_)
     | DenoResolveErrorKind::PackageJsonDepValueUrlParse(_)
@@ -909,28 +1001,8 @@ fn resolve_absolute_path(
   }
 }
 
-fn create_js_error(err: anyhow::Error) -> JsValue {
-  let err_value: JsValue =
-    wasm_bindgen::JsError::new(&format!("{:#}", err)).into();
-  if let Some(err) = err.downcast_ref::<ResolveWithGraphError>() {
-    if let Some(code) = resolve_with_graph_error_code(err) {
-      _ = js_sys::Reflect::set(
-        &err_value,
-        &JsValue::from_str("code"),
-        &JsValue::from_str(code),
-      );
-    }
-    if let Some(specifier) = err.maybe_specifier()
-      && let Ok(url) = specifier.into_owned().into_url()
-    {
-      _ = js_sys::Reflect::set(
-        &err_value,
-        &JsValue::from_str("specifier"),
-        &JsValue::from_str(url.as_str()),
-      );
-    }
-  }
-  err_value
+fn create_js_error(err: &anyhow::Error) -> JsValue {
+  wasm_bindgen::JsError::new(&format!("{:#}", err)).into()
 }
 
 fn parse_resolution_mode(resolution_mode: u8) -> node_resolver::ResolutionMode {
