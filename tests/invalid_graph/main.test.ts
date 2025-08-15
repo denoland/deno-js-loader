@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createLoaderWithDiagnostics } from "../helpers.ts";
 
-Deno.test("loads linked entrypoint", async () => {
+Deno.test("surfaces graph diagnostic", async () => {
   const mainFile = import.meta.dirname + "/testdata/main.ts";
   const { diagnostics } = await createLoaderWithDiagnostics({
     configPath: import.meta.dirname + "/testdata/deno.json",
