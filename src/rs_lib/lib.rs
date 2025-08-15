@@ -653,7 +653,7 @@ impl DenoLoader {
     })
   }
 
-  fn resolve_provided_referrer<'a>(
+  fn resolve_provided_referrer(
     &self,
     importer: Option<String>,
   ) -> Result<Option<Url>, anyhow::Error> {
@@ -845,10 +845,10 @@ impl DenoLoader {
       let Ok(pkg_json) = result else {
         continue;
       };
-      if let Some(optional_deps) = &pkg_json.optional_dependencies {
-        if optional_deps.contains_key(specifier) {
-          return true;
-        }
+      if let Some(optional_deps) = &pkg_json.optional_dependencies
+        && optional_deps.contains_key(specifier)
+      {
+        return true;
       }
       if let Some(meta) = &pkg_json.peer_dependencies_meta
         && let Some(obj) = meta.get(specifier)
@@ -858,15 +858,15 @@ impl DenoLoader {
       {
         return true;
       }
-      if let Some(deps) = &pkg_json.dependencies {
-        if deps.contains_key(specifier) {
-          return false;
-        }
+      if let Some(deps) = &pkg_json.dependencies
+        && deps.contains_key(specifier)
+      {
+        return false;
       }
-      if let Some(deps) = &pkg_json.peer_dependencies {
-        if deps.contains_key(specifier) {
-          return false;
-        }
+      if let Some(deps) = &pkg_json.peer_dependencies
+        && deps.contains_key(specifier)
+      {
+        return false;
       }
     }
     false
@@ -886,16 +886,15 @@ impl DenoLoader {
           &JsValue::from_str("code"),
           &JsValue::from_str(code.as_str()),
         );
-        if code == NodeJsErrorCode::ERR_MODULE_NOT_FOUND {
-          if let Some(referrer) = maybe_referrer {
-            if self.is_optional_npm_dep(specifier, referrer) {
-              _ = js_sys::Reflect::set(
-                &err_value,
-                &JsValue::from_str("isOptionalDependency"),
-                &JsValue::from_bool(true),
-              );
-            }
-          }
+        if code == NodeJsErrorCode::ERR_MODULE_NOT_FOUND
+          && let Some(referrer) = maybe_referrer
+          && self.is_optional_npm_dep(specifier, referrer)
+        {
+          _ = js_sys::Reflect::set(
+            &err_value,
+            &JsValue::from_str("isOptionalDependency"),
+            &JsValue::from_bool(true),
+          );
         }
       }
       if let Some(specifier) = err.maybe_specifier()
