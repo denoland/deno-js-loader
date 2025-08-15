@@ -2,6 +2,7 @@ mod http_client;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -29,6 +30,8 @@ use deno_npm_installer::NpmInstallerFactory;
 use deno_npm_installer::NpmInstallerFactoryOptions;
 use deno_npm_installer::Reporter;
 use deno_npm_installer::lifecycle_scripts::NullLifecycleScriptsExecutor;
+use deno_resolver::DenoResolveError;
+use deno_resolver::DenoResolveErrorKind;
 use deno_resolver::cache::ParsedSourceCache;
 use deno_resolver::cjs::CjsTrackerRc;
 use deno_resolver::deno_json::CompilerOptionsOverrides;
@@ -46,12 +49,16 @@ use deno_resolver::file_fetcher::DenoGraphLoaderOptions;
 use deno_resolver::file_fetcher::PermissionedFileFetcher;
 use deno_resolver::file_fetcher::PermissionedFileFetcherOptions;
 use deno_resolver::graph::DefaultDenoResolverRc;
+use deno_resolver::graph::ResolveWithGraphError;
+use deno_resolver::graph::ResolveWithGraphErrorKind;
 use deno_resolver::graph::ResolveWithGraphOptions;
 use deno_resolver::loader::LoadCodeSourceErrorKind;
 use deno_resolver::loader::LoadedModuleOrAsset;
+use deno_resolver::loader::MemoryFilesRc;
 use deno_resolver::loader::ModuleLoader;
 use deno_resolver::loader::RequestedModuleType;
 use deno_resolver::npm::DenoInNpmPackageChecker;
+use deno_resolver::workspace::MappedResolutionError;
 use deno_semver::SmallStackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
@@ -65,6 +72,7 @@ use node_resolver::NodeResolverOptions;
 use node_resolver::PackageJsonThreadLocalCache;
 use node_resolver::analyze::NodeCodeTranslatorMode;
 use node_resolver::cache::NodeResolutionThreadLocalCache;
+use node_resolver::errors::NodeJsErrorCoded;
 use serde::Deserialize;
 use serde::Serialize;
 use sys_traits::EnvCurrentDir;
@@ -340,6 +348,7 @@ impl DenoWorkspace {
       NullBlobStore,
       Arc::new(self.workspace_factory.http_cache()?.clone()),
       self.http_client.clone(),
+      MemoryFilesRc::default(),
       self.workspace_factory.sys().clone(),
       PermissionedFileFetcherOptions {
         allow_remote: true,
@@ -804,6 +813,49 @@ impl DenoLoader {
   }
 }
 
+fn resolve_with_graph_error_code(
+  err: &ResolveWithGraphError,
+) -> Option<&'static str> {
+  match err.as_kind() {
+    ResolveWithGraphErrorKind::CouldNotResolveNpmNv(err) => {
+      Some(err.code().as_str())
+    }
+    ResolveWithGraphErrorKind::ResolvePkgFolderFromDenoModule(_) => None,
+    ResolveWithGraphErrorKind::ResolveNpmReqRef(err) => {
+      err.err.maybe_code().map(|c| c.as_str())
+    }
+    ResolveWithGraphErrorKind::Resolution(err) => err
+      .source()
+      .and_then(|s| s.downcast_ref::<DenoResolveError>())
+      .and_then(deno_resolve_error_code),
+    ResolveWithGraphErrorKind::Resolve(err) => deno_resolve_error_code(err),
+    ResolveWithGraphErrorKind::PathToUrl(_) => None,
+  }
+}
+
+fn deno_resolve_error_code(err: &DenoResolveError) -> Option<&'static str> {
+  match err.as_kind() {
+    DenoResolveErrorKind::InvalidVendorFolderImport
+    | DenoResolveErrorKind::UnsupportedPackageJsonFileSpecifier
+    | DenoResolveErrorKind::UnsupportedPackageJsonJsrReq => None,
+    DenoResolveErrorKind::MappedResolution(err) => match err {
+      MappedResolutionError::Specifier(_)
+      | MappedResolutionError::ImportMap(_)
+      | MappedResolutionError::Workspace(_) => None,
+    },
+    DenoResolveErrorKind::Node(err) => err.maybe_code().map(|c| c.as_str()),
+    DenoResolveErrorKind::ResolveNpmReqRef(err) => {
+      err.err.maybe_code().map(|c| c.as_str())
+    }
+    DenoResolveErrorKind::NodeModulesOutOfDate(_)
+    | DenoResolveErrorKind::PackageJsonDepValueParse(_)
+    | DenoResolveErrorKind::PackageJsonDepValueUrlParse(_)
+    | DenoResolveErrorKind::PathToUrl(_)
+    | DenoResolveErrorKind::ResolvePkgFolderFromDenoReq(_)
+    | DenoResolveErrorKind::WorkspaceResolvePkgJsonFolder(_) => None,
+  }
+}
+
 fn create_module_response(
   url: &Url,
   media_type: MediaType,
@@ -858,7 +910,27 @@ fn resolve_absolute_path(
 }
 
 fn create_js_error(err: anyhow::Error) -> JsValue {
-  wasm_bindgen::JsError::new(&format!("{:#}", err)).into()
+  let err_value: JsValue =
+    wasm_bindgen::JsError::new(&format!("{:#}", err)).into();
+  if let Some(err) = err.downcast_ref::<ResolveWithGraphError>() {
+    if let Some(code) = resolve_with_graph_error_code(err) {
+      _ = js_sys::Reflect::set(
+        &err_value,
+        &JsValue::from_str("code"),
+        &JsValue::from_str(code),
+      );
+    }
+    if let Some(specifier) = err.maybe_specifier() {
+      if let Ok(url) = specifier.into_owned().into_url() {
+        _ = js_sys::Reflect::set(
+          &err_value,
+          &JsValue::from_str("specifier"),
+          &JsValue::from_str(url.as_str()),
+        );
+      }
+    }
+  }
+  err_value
 }
 
 fn parse_resolution_mode(resolution_mode: u8) -> node_resolver::ResolutionMode {
@@ -943,7 +1015,7 @@ struct CapturingModuleAnalyzerRef<'a> {
 }
 
 impl<'a> CapturingModuleAnalyzerRef<'a> {
-  pub fn as_capturing_parser(&self) -> CapturingEsParser {
+  pub fn as_capturing_parser(&self) -> CapturingEsParser<'_> {
     CapturingEsParser::new(Some(self.parser), self.store)
   }
 }

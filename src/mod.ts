@@ -73,6 +73,18 @@ export interface WorkspaceOptions {
   noTranspile?: boolean;
 }
 
+export class ResolveError extends Error {
+  /**
+   * Possible specifier this would resolve to if the error did not occur.
+   *
+   * This is useful for implementing something like `import.meta.resolve` where
+   * you want the resolution to always occur and not error.
+   */
+  specifier?: string;
+  /** Node.js error code. */
+  code?: string;
+}
+
 /** File type. */
 export enum MediaType {
   JavaScript = 0,
@@ -203,7 +215,9 @@ export class Loader implements Disposable {
     return messages.map((message) => ({ message }));
   }
 
-  /** Synchronously resolves a specifier using the given referrer and resolution mode. */
+  /** Synchronously resolves a specifier using the given referrer and resolution mode.
+   * @throws {ResolveError}
+   */
   resolveSync(
     specifier: string,
     referrer: string | undefined,
@@ -216,11 +230,20 @@ export class Loader implements Disposable {
         }' (${resolutionModeToString(resolutionMode)})`,
       );
     }
-    const value = this.#inner.resolve_sync(specifier, referrer, resolutionMode);
-    if (this.#debug) {
-      console.error(`DEBUG - Resolved to '${value}'`);
+    try {
+      const value = this.#inner.resolve_sync(
+        specifier,
+        referrer,
+        resolutionMode,
+      );
+      if (this.#debug) {
+        console.error(`DEBUG - Resolved to '${value}'`);
+      }
+      return value;
+    } catch (err) {
+      Object.setPrototypeOf(err, ResolveError.prototype);
+      throw err;
     }
-    return value;
   }
 
   /** Asynchronously resolves a specifier using the given referrer and resolution mode.
@@ -230,6 +253,8 @@ export class Loader implements Disposable {
    * npm or jsr resolution than Deno. For that reason it's better to provide the list of
    * entrypoints up front so the loader can create the npm and jsr graph, and then after use
    * synchronous resolution to resolve jsr and npm specifiers.
+   *
+   * @throws {ResolveError}
    */
   async resolve(
     specifier: string,
@@ -243,15 +268,20 @@ export class Loader implements Disposable {
         }' (${resolutionModeToString(resolutionMode)})`,
       );
     }
-    const value = await this.#inner.resolve(
-      specifier,
-      referrer,
-      resolutionMode,
-    );
-    if (this.#debug) {
-      console.error(`DEBUG - Resolved to '${value}'`);
+    try {
+      const value = await this.#inner.resolve(
+        specifier,
+        referrer,
+        resolutionMode,
+      );
+      if (this.#debug) {
+        console.error(`DEBUG - Resolved to '${value}'`);
+      }
+      return value;
+    } catch (err) {
+      Object.setPrototypeOf(err, ResolveError.prototype);
+      throw err;
     }
-    return value;
   }
 
   /** Loads a specifier. */
