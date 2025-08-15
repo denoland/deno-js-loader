@@ -46,7 +46,9 @@ jobs:
 
       - name: lint
         if: contains(matrix.os, 'ubuntu')
-        run: deno lint
+        run: |
+          deno lint
+          cd src/rs_lib && cargo clippy
 
       - name: check
         run: deno check --doc

@@ -65,8 +65,7 @@ impl deno_cache_dir::file_fetcher::HttpClient for WasmHttpClient {
     headers: HeaderMap,
   ) -> Result<SendResponse, SendError> {
     if self.cached_only {
-      return Err(SendError::Failed(Box::new(std::io::Error::new(
-        std::io::ErrorKind::Other,
+      return Err(SendError::Failed(Box::new(std::io::Error::other(
         "Cannot download because --cached-only was specified.",
       ))));
     }
@@ -78,8 +77,7 @@ impl deno_cache_dir::file_fetcher::HttpClient for WasmHttpClient {
       fetch_specifier_typed(url.as_str(), headers)
         .await
         .map_err(|err| {
-          SendError::Failed(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
+          SendError::Failed(Box::new(std::io::Error::other(
             err.to_string(),
           )))
         })?;
@@ -149,14 +147,14 @@ impl deno_npm_cache::NpmCacheHttpClient for WasmHttpClient {
         Ok(NpmCacheHttpClientResponse::Bytes(
           deno_npm_cache::NpmCacheHttpClientBytesResponse {
             etag,
-            bytes: response.body.into(),
+            bytes: response.body,
           },
         ))
       }
       304 => Ok(NpmCacheHttpClientResponse::NotModified),
       404 => Ok(NpmCacheHttpClientResponse::NotFound),
       code => Err(deno_npm_cache::DownloadError {
-        status_code: Some(code as u16),
+        status_code: Some(code),
         error: JsErrorBox::generic(format!("Unexpected status: {code}")),
       }),
     }
@@ -230,14 +228,13 @@ fn response_headers_to_headermap(headers: JsValue) -> HeaderMap {
     let key = pair.get(0).as_string();
     let value = pair.get(1).as_string();
 
-    if let (Some(k), Some(v)) = (key, value) {
-      if let (Ok(name), Ok(val)) = (
+    if let (Some(k), Some(v)) = (key, value)
+      && let (Ok(name), Ok(val)) = (
         HeaderName::from_bytes(k.as_bytes()),
         HeaderValue::from_str(&v),
       ) {
         map.append(name, val);
       }
-    }
   }
 
   map
