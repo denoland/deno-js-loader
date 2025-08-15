@@ -83,7 +83,12 @@ export class ResolveError extends Error {
   specifier?: string;
   /** Node.js error code. */
   code?: string;
-  /** If the specifier being resolved was an optional npm dependency. */
+  /**
+   * If the specifier being resolved was an optional npm dependency.
+   *
+   * @remarks This will only be true when the error code is
+   * `ERR_MODULE_NOT_FOUND`.
+   */
   isOptionalDependency?: boolean;
 }
 
