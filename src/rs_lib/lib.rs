@@ -52,6 +52,7 @@ use deno_resolver::graph::DefaultDenoResolverRc;
 use deno_resolver::graph::ResolveWithGraphError;
 use deno_resolver::graph::ResolveWithGraphErrorKind;
 use deno_resolver::graph::ResolveWithGraphOptions;
+use deno_resolver::loader::AllowJsonImports;
 use deno_resolver::loader::LoadCodeSourceErrorKind;
 use deno_resolver::loader::LoadedModuleOrAsset;
 use deno_resolver::loader::MemoryFilesRc;
@@ -260,6 +261,7 @@ impl DenoWorkspace {
     let resolver_factory = Arc::new(ResolverFactory::new(
       workspace_factory.clone(),
       ResolverFactoryOptions {
+        allow_json_imports: AllowJsonImports::Always,
         compiler_options_overrides: CompilerOptionsOverrides {
           no_transpile: options.no_transpile.unwrap_or(false),
           source_map_base: Some(
