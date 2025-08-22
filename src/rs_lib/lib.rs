@@ -268,7 +268,7 @@ impl DenoWorkspace {
             workspace_factory
               .workspace_directory()?
               .workspace
-              .root_dir()
+              .root_dir_url()
               .as_ref()
               .clone(),
           ),
@@ -311,6 +311,7 @@ impl DenoWorkspace {
       Arc::new(http_client.clone()),
       Arc::new(NullLifecycleScriptsExecutor),
       ConsoleLogReporter,
+      None,
       NpmInstallerFactoryOptions {
         cache_setting: if options.cached_only.unwrap_or_default() {
           deno_npm_cache::NpmCacheSetting::Only
@@ -488,6 +489,7 @@ impl DenoLoader {
           DenoGraphLoaderOptions {
             file_header_overrides: Default::default(),
             permissions: None,
+            reporter: None,
           },
         );
 
