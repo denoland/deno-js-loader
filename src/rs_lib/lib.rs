@@ -255,6 +255,7 @@ impl DenoWorkspace {
         no_lock: options.no_lock.unwrap_or_default(),
         no_npm: false,
         npm_process_state: None,
+        root_node_modules_dir_override: None,
         vendor: None, // provide this via the config
       },
     ));

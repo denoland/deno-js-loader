@@ -29,7 +29,7 @@ default-features = false
 features = ["rust_backend"]
 
 [dependencies.deno_ast]
-version = "=0.49"
+version = "=0.50.0"
 features = ["transpiling"]
 
 [dependencies.deno_cache_dir]
@@ -41,7 +41,7 @@ path = "../../deno/libs/config"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]
-version = "=0.99.0"
+version = "=0.100.0"
 features = ["swc"]
 default-features = false
 
