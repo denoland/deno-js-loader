@@ -294,6 +294,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -722,6 +723,7 @@ name = "deno_permissions"
 version = "0.73.0"
 dependencies = [
  "capacity_builder",
+ "chrono",
  "deno_error",
  "deno_path_util",
  "deno_terminal",
