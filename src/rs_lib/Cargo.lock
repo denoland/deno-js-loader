@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "deno_config"
-version = "0.64.0"
+version = "0.65.0"
 dependencies = [
  "boxed_error",
  "capacity_builder",
@@ -582,7 +582,7 @@ dependencies = [
 
 [[package]]
 name = "deno_maybe_sync"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dashmap",
 ]
@@ -622,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "deno_npm_cache"
-version = "0.33.0"
+version = "0.34.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "deno_npm_installer"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-once-cell",
@@ -690,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "deno_package_json"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "boxed_error",
  "deno_error",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "deno_permissions"
-version = "0.73.0"
+version = "0.74.0"
 dependencies = [
  "capacity_builder",
  "chrono",
@@ -748,7 +748,7 @@ dependencies = [
 
 [[package]]
 name = "deno_resolver"
-version = "0.45.0"
+version = "0.46.0"
 dependencies = [
  "anyhow",
  "async-once-cell",
@@ -1554,7 +1554,7 @@ dependencies = [
 
 [[package]]
 name = "node_resolver"
-version = "0.52.0"
+version = "0.53.0"
 dependencies = [
  "anyhow",
  "async-trait",
