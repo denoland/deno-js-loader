@@ -17,6 +17,7 @@ use deno_cache_dir::file_fetcher::NullBlobStore;
 use deno_error::JsErrorBox;
 use deno_graph::CheckJsOption;
 use deno_graph::GraphKind;
+use deno_graph::JsrMetadataStore;
 use deno_graph::MediaType;
 use deno_graph::ModuleGraph;
 use deno_graph::Position;
@@ -381,6 +382,7 @@ impl DenoWorkspace {
       graph: ModuleGraphCell::new(deno_graph::ModuleGraph::new(
         deno_graph::GraphKind::CodeOnly,
       )),
+      jsr_metadata_store: Rc::new(JsrMetadataStore::default()),
     })
   }
 }
@@ -401,6 +403,7 @@ pub struct DenoLoader {
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
   graph: ModuleGraphCell,
   task_queue: Rc<deno_unsync::TaskQueue>,
+  jsr_metadata_store: Rc<JsrMetadataStore>,
 }
 
 impl Drop for DenoLoader {
@@ -527,6 +530,7 @@ impl DenoLoader {
               resolver: Some(&graph_resolver),
               unstable_bytes_imports: true,
               unstable_text_imports: true,
+              jsr_metadata_store: Some(self.jsr_metadata_store.clone()),
             },
           )
           .await;
