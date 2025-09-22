@@ -56,6 +56,11 @@ path = "../../deno/libs/npm_cache"
 path = "../../deno/libs/npm_installer"
 default-features = false
 
+[dependencies.deno_package_json]
+path = "../../deno/libs/package_json"
+features = ["sync"]
+
+
 [dependencies.deno_resolver]
 path = "../../deno/libs/resolver"
 features = ["deno_ast","graph","sync"]
@@ -80,4 +85,4 @@ features = ["real","wasm"]
 codegen-units = 1
 incremental = true
 lto = true
-opt-level = "z"
+opt-level = 3
