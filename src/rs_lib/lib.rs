@@ -944,7 +944,8 @@ fn deno_resolve_error_code(err: &DenoResolveError) -> Option<NodeJsErrorCode> {
     DenoResolveErrorKind::MappedResolution(err) => match err {
       MappedResolutionError::Specifier(_)
       | MappedResolutionError::ImportMap(_)
-      | MappedResolutionError::Workspace(_) => None,
+      | MappedResolutionError::Workspace(_)
+      | MappedResolutionError::NotFoundInCompilerOptionsPaths(_) => None,
     },
     DenoResolveErrorKind::Node(err) => err.maybe_code(),
     DenoResolveErrorKind::ResolveNpmReqRef(err) => err.err.maybe_code(),
