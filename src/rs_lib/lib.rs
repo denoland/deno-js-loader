@@ -168,6 +168,8 @@ pub struct DenoWorkspaceOptions {
   #[serde(default)]
   pub node_conditions: Option<Vec<String>>,
   #[serde(default)]
+  pub newest_dependency_date: Option<chrono::DateTime<chrono::Utc>>,
+  #[serde(default)]
   pub cached_only: Option<bool>,
   #[serde(default)]
   pub preserve_jsx: Option<bool>,
@@ -303,8 +305,10 @@ impl DenoWorkspace {
         package_json_dep_resolution: None,
         specified_import_map: None,
         bare_node_builtins: true,
+        newest_dependency_date: options.newest_dependency_date,
         // todo: report these
         on_mapped_resolution_diagnostic: None,
+        types_node_version_req: None,
       },
     ));
     let http_client = WasmHttpClient::default();
@@ -510,6 +514,8 @@ impl DenoLoader {
         {
           lockfile.fill_graph(&mut graph);
         }
+        let jsr_version_resolver =
+          self.resolver_factory.jsr_version_resolver()?;
         graph
           .build(
             entrypoints,
@@ -523,6 +529,9 @@ impl DenoLoader {
               locker: locker.as_mut().map(|l| l as _),
               file_system: self.workspace_factory.sys(),
               jsr_url_provider: Default::default(),
+              jsr_version_resolver: Cow::Borrowed(
+                jsr_version_resolver.as_ref(),
+              ),
               passthrough_jsr_specifiers: false,
               module_analyzer: &module_analyzer,
               npm_resolver: Some(npm_resolver.as_ref()),

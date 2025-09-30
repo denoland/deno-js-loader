@@ -289,9 +289,9 @@ checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 
 [[package]]
 name = "chrono"
-version = "0.4.41"
+version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
+checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
 dependencies = [
  "num-traits",
  "serde",
@@ -536,13 +536,14 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.100.1"
+version = "0.101.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0acfb48cc2e5a63b1c3501f2243e6898fb1b4518e1d0674b3344b11631c9d0ba"
+checksum = "f0419813ac1469cfbb2b987dac6870de13cdff4bea6609f70fd99b3c2bc48403"
 dependencies = [
  "async-trait",
  "boxed_error",
  "capacity_builder",
+ "chrono",
  "data-url",
  "deno_ast",
  "deno_error",
@@ -601,12 +602,13 @@ dependencies = [
 
 [[package]]
 name = "deno_npm"
-version = "0.38.1"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80af8018f8ba59cb1b2da276e55b3765c5ac66181dc59c4bd724aa19cfbb3134"
+checksum = "0470f809b73b0d936ff0df40f042a5c8e3c687d1118a174f44e967e0c075364b"
 dependencies = [
  "async-trait",
  "capacity_builder",
+ "chrono",
  "deno_error",
  "deno_lockfile",
  "deno_semver",
@@ -659,6 +661,7 @@ dependencies = [
  "bincode",
  "boxed_error",
  "capacity_builder",
+ "chrono",
  "deno_config",
  "deno_error",
  "deno_graph",
@@ -756,6 +759,7 @@ dependencies = [
  "base32",
  "boxed_error",
  "capacity_builder",
+ "chrono",
  "dashmap",
  "deno_ast",
  "deno_cache_dir",
@@ -1856,6 +1860,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "chrono",
  "console_error_panic_hook",
  "deno_ast",
  "deno_cache_dir",

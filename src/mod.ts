@@ -52,6 +52,8 @@ export interface WorkspaceOptions {
   configPath?: string;
   /** Node resolution conditions to use for resolving package.json exports. */
   nodeConditions?: string[];
+  /** Date for the newest allowed dependency. */
+  newestDependencyDate?: Date;
   /**
    * Platform to bundle for.
    * @default "node"
