@@ -10,8 +10,7 @@ Deno.test("surfaces graph diagnostic", async () => {
   });
 
   assertEquals(diagnostics.length, 1);
-  const expectedMessage =
-    'Relative import path "unknown" not prefixed with / or ./ or ../';
+  const expectedMessage = 'Import "unknown" not a dependency';
   assertEquals(
     diagnostics[0].message.substring(0, expectedMessage.length),
     expectedMessage,
