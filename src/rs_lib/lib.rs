@@ -14,6 +14,7 @@ use anyhow::bail;
 use deno_ast::ModuleKind;
 use deno_cache_dir::file_fetcher::CacheSetting;
 use deno_cache_dir::file_fetcher::NullBlobStore;
+use deno_config::deno_json::NewestDependencyDate;
 use deno_error::JsErrorBox;
 use deno_graph::CheckJsOption;
 use deno_graph::GraphKind;
@@ -305,7 +306,9 @@ impl DenoWorkspace {
         package_json_dep_resolution: None,
         specified_import_map: None,
         bare_node_builtins: true,
-        newest_dependency_date: options.newest_dependency_date,
+        newest_dependency_date: options
+          .newest_dependency_date
+          .map(NewestDependencyDate::Enabled),
         // todo: report these
         on_mapped_resolution_diagnostic: None,
         types_node_version_req: None,
@@ -933,7 +936,10 @@ fn resolve_with_graph_error_code(
   err: &ResolveWithGraphError,
 ) -> Option<NodeJsErrorCode> {
   match err.as_kind() {
-    ResolveWithGraphErrorKind::CouldNotResolveNpmNv(err) => Some(err.code()),
+    ResolveWithGraphErrorKind::CouldNotResolveNpmReqRef(err) => {
+      Some(err.code())
+    }
+    ResolveWithGraphErrorKind::ManagedResolvePkgFolderFromDenoReq(_) => None,
     ResolveWithGraphErrorKind::ResolvePkgFolderFromDenoModule(_) => None,
     ResolveWithGraphErrorKind::ResolveNpmReqRef(err) => err.err.maybe_code(),
     ResolveWithGraphErrorKind::Resolution(err) => err
