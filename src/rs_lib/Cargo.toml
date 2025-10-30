@@ -19,7 +19,7 @@ wasm-bindgen = "=0.2.100"
 wasm-bindgen-futures = "=0.4.50"
 async-trait = "0.1.73"
 deno_error = "=0.7.0"
-deno_path_util = "=0.6.3"
+deno_path_util = "=0.6.4"
 deno_semver = "=0.9.0"
 url = "2.5"
 
