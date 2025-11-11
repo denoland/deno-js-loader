@@ -330,6 +330,7 @@ impl DenoWorkspace {
         caching_strategy: deno_npm_installer::graph::NpmCachingStrategy::Eager,
         lifecycle_scripts_config: deno_npm_installer::LifecycleScriptsConfig {
           allowed: deno_npm_installer::PackagesAllowedScripts::None,
+          denied: Vec::new(),
           initial_cwd: workspace_factory.initial_cwd().clone(),
           root_dir: workspace_factory
             .workspace_directory()?
