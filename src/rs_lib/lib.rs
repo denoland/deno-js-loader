@@ -304,6 +304,7 @@ impl DenoWorkspace {
         node_resolution_cache: Some(Arc::new(NodeResolutionThreadLocalCache)),
         package_json_cache: Some(Arc::new(PackageJsonThreadLocalCache)),
         package_json_dep_resolution: None,
+        require_modules: Vec::new(),
         specified_import_map: None,
         bare_node_builtins: true,
         newest_dependency_date: options
