@@ -1054,11 +1054,13 @@ fn media_type_to_u8(media_type: MediaType) -> u8 {
     MediaType::Tsx => 10,
     MediaType::Css => 11,
     MediaType::Json => 12,
-    MediaType::Html => 13,
-    MediaType::Sql => 14,
-    MediaType::Wasm => 15,
-    MediaType::SourceMap => 16,
-    MediaType::Unknown => 17,
+    MediaType::Jsonc => 13,
+    MediaType::Json5 => 14,
+    MediaType::Html => 15,
+    MediaType::Sql => 16,
+    MediaType::Wasm => 17,
+    MediaType::SourceMap => 18,
+    MediaType::Unknown => 19,
   }
 }
 
