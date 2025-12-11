@@ -312,7 +312,6 @@ impl DenoWorkspace {
           .map(NewestDependencyDate::Enabled),
         // todo: report these
         on_mapped_resolution_diagnostic: None,
-        types_node_version_req: None,
       },
     ));
     let http_client = WasmHttpClient::default();
