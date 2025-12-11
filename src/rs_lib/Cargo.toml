@@ -45,7 +45,7 @@ path = "../../deno/libs/config"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]
-version = "=0.104.0"
+version = "=0.105.0"
 features = ["swc"]
 default-features = false
 
