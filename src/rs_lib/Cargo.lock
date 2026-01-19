@@ -481,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "deno_config"
-version = "0.76.0"
+version = "0.77.0"
 dependencies = [
  "boxed_error",
  "capacity_builder",
@@ -531,9 +531,9 @@ dependencies = [
 
 [[package]]
 name = "deno_graph"
-version = "0.105.0"
+version = "0.106.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd6d3843cfbbd8803b6ef81025af98519651880e6ffd50ee01bb7251afbd6f5"
+checksum = "7c972bc1d8b49a202a1034f20986afb1cb15d25b5b7d054ff099bd88a5e8f383"
 dependencies = [
  "async-trait",
  "boxed_error",
@@ -547,7 +547,6 @@ dependencies = [
  "deno_semver",
  "deno_unsync",
  "futures",
- "import_map",
  "indexmap",
  "log",
  "monch",
@@ -578,7 +577,7 @@ dependencies = [
 
 [[package]]
 name = "deno_maybe_sync"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "dashmap",
 ]
@@ -619,7 +618,7 @@ dependencies = [
 
 [[package]]
 name = "deno_npm_cache"
-version = "0.45.0"
+version = "0.46.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -648,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "deno_npm_installer"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "async-once-cell",
@@ -689,7 +688,7 @@ dependencies = [
 
 [[package]]
 name = "deno_package_json"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "boxed_error",
  "deno_error",
@@ -719,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "deno_permissions"
-version = "0.85.0"
+version = "0.86.0"
 dependencies = [
  "capacity_builder",
  "chrono",
@@ -747,7 +746,7 @@ dependencies = [
 
 [[package]]
 name = "deno_resolver"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "anyhow",
  "async-once-cell",
@@ -1343,9 +1342,9 @@ dependencies = [
 
 [[package]]
 name = "import_map"
-version = "0.24.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83a4958a41489355816028239fee373797435384d162f4908e7980c83c3bb1b"
+checksum = "61dcb2ebdf4a4df8e6353c566f4b51ee2f602341538e41e77c8f861ac1bb16d5"
 dependencies = [
  "boxed_error",
  "deno_error",
@@ -1555,7 +1554,7 @@ dependencies = [
 
 [[package]]
 name = "node_resolver"
-version = "0.64.0"
+version = "0.65.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2545,9 +2544,9 @@ dependencies = [
 
 [[package]]
 name = "sys_traits"
-version = "0.1.17"
+version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f74a2c95f72e36fa6bd04a40d15623a9904bab1cc2fa6c6135b09d774a65088"
+checksum = "4121e69c72108134f9daf82cf6580269f018f5d8fb8cd3063df17699fbb84cb1"
 dependencies = [
  "getrandom",
  "js-sys",

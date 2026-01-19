@@ -45,7 +45,7 @@ path = "../../deno/libs/config"
 features = ["workspace","sync"]
 
 [dependencies.deno_graph]
-version = "=0.105.0"
+version = "=0.106.0"
 features = ["swc"]
 default-features = false
 
@@ -69,11 +69,11 @@ path = "../../deno/libs/node_resolver"
 features = ["sync"]
 
 [dependencies.sys_traits]
-version = "=0.1.17"
+version = "=0.1.22"
 features = ["real"]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
-version = "=0.1.17"
+version = "=0.1.22"
 features = ["real","wasm"]
 
 [profile.release]
