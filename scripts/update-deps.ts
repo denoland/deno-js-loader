@@ -19,20 +19,45 @@ const denoDependencies = denoCargoToml.workspace.dependencies;
 const localCargoTomlPath = rootDir.join("src/rs_lib/Cargo.toml");
 const localCargoToml = toml.parse(localCargoTomlPath.readTextSync()) as any;
 
-for (const [key, value] of Object.entries(localCargoToml.dependencies)) {
-  const newVersion = getVersion(denoDependencies[key]);
-  if (newVersion == null) {
-    continue;
-  }
-  if (typeof value === "string") {
-    if (value !== newVersion) {
-      $.logLight(`Updating ${key}@${value} to ${newVersion}`);
-      localCargoToml.dependencies[key] = newVersion;
+updateDependencies(localCargoToml.dependencies, denoDependencies);
+
+// update target-specific dependencies
+if (localCargoToml.target) {
+  for (const targetDeps of Object.values(localCargoToml.target)) {
+    if (
+      targetDeps != null &&
+      typeof targetDeps === "object" &&
+      "dependencies" in targetDeps
+    ) {
+      updateDependencies(
+        (targetDeps as any).dependencies,
+        denoDependencies,
+      );
     }
-  } else if (value != null && typeof value === "object" && "version" in value) {
-    if (value.version !== newVersion) {
-      $.logLight(`Updating ${key}@${value.version} to ${newVersion}`);
-      value.version = newVersion;
+  }
+}
+
+function updateDependencies(
+  localDeps: Record<string, any>,
+  sourceDeps: Record<string, any>,
+) {
+  for (const [key, value] of Object.entries(localDeps)) {
+    const newVersion = getVersion(sourceDeps[key]);
+    if (newVersion == null) {
+      continue;
+    }
+    if (typeof value === "string") {
+      if (value !== newVersion) {
+        $.logLight(`Updating ${key}@${value} to ${newVersion}`);
+        localDeps[key] = newVersion;
+      }
+    } else if (
+      value != null && typeof value === "object" && "version" in value
+    ) {
+      if (value.version !== newVersion) {
+        $.logLight(`Updating ${key}@${value.version} to ${newVersion}`);
+        value.version = newVersion;
+      }
     }
   }
 }

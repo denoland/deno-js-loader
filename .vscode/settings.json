@@ -9,6 +9,9 @@
   "[json]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
+  "[markdown]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
   "[yaml]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
