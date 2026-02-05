@@ -955,8 +955,7 @@ fn resolve_with_graph_error_code(
 fn deno_resolve_error_code(err: &DenoResolveError) -> Option<NodeJsErrorCode> {
   match err.as_kind() {
     DenoResolveErrorKind::InvalidVendorFolderImport
-    | DenoResolveErrorKind::UnsupportedPackageJsonFileSpecifier
-    | DenoResolveErrorKind::UnsupportedPackageJsonJsrReq => None,
+    | DenoResolveErrorKind::UnsupportedPackageJsonFileSpecifier => None,
     DenoResolveErrorKind::MappedResolution(err) => match err {
       MappedResolutionError::Specifier(_)
       | MappedResolutionError::ImportMap(_)
@@ -1056,10 +1055,11 @@ fn media_type_to_u8(media_type: MediaType) -> u8 {
     MediaType::Jsonc => 13,
     MediaType::Json5 => 14,
     MediaType::Html => 15,
-    MediaType::Sql => 16,
-    MediaType::Wasm => 17,
-    MediaType::SourceMap => 18,
-    MediaType::Unknown => 19,
+    MediaType::Markdown => 16,
+    MediaType::Sql => 17,
+    MediaType::Wasm => 18,
+    MediaType::SourceMap => 19,
+    MediaType::Unknown => 20,
   }
 }
 
