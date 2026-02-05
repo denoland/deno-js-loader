@@ -112,10 +112,11 @@ export enum MediaType {
   Jsonc = 13,
   Json5 = 14,
   Html = 15,
-  Sql = 16,
-  Wasm = 17,
-  SourceMap = 18,
-  Unknown = 19,
+  Markdown = 16,
+  Sql = 17,
+  Wasm = 18,
+  SourceMap = 19,
+  Unknown = 20,
 }
 
 /** A response received from a load. */
