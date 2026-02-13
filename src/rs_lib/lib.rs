@@ -7,6 +7,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use anyhow::Context;
@@ -32,6 +33,8 @@ use deno_npm_installer::NpmInstallerFactory;
 use deno_npm_installer::NpmInstallerFactoryOptions;
 use deno_npm_installer::Reporter;
 use deno_npm_installer::lifecycle_scripts::NullLifecycleScriptsExecutor;
+use deno_package_json::PackageJsonCacheResult;
+use deno_package_json::PackageJsonRc;
 use deno_resolver::DenoResolveError;
 use deno_resolver::DenoResolveErrorKind;
 use deno_resolver::cache::ParsedSourceCache;
@@ -72,7 +75,6 @@ use log::Metadata;
 use log::Record;
 use node_resolver::NodeConditionOptions;
 use node_resolver::NodeResolverOptions;
-use node_resolver::PackageJsonThreadLocalCache;
 use node_resolver::analyze::NodeCodeTranslatorMode;
 use node_resolver::cache::NodeResolutionThreadLocalCache;
 use node_resolver::errors::NodeJsErrorCode;
@@ -189,9 +191,29 @@ pub struct DenoWorkspace {
   workspace_factory: Arc<WorkspaceFactory<RealSys>>,
 }
 
-impl Drop for DenoWorkspace {
-  fn drop(&mut self) {
-    PackageJsonThreadLocalCache::clear();
+#[derive(Debug)]
+pub struct PackageJsonOwnedCache {
+  map: Mutex<std::collections::HashMap<PathBuf, Option<PackageJsonRc>>>,
+}
+
+impl PackageJsonOwnedCache {
+  pub fn new() -> Self {
+    Self {
+      map: Mutex::new(std::collections::HashMap::new()),
+    }
+  }
+}
+
+impl deno_package_json::PackageJsonCache for PackageJsonOwnedCache {
+  fn get(&self, path: &Path) -> PackageJsonCacheResult {
+    self.map.lock().unwrap().get(path).cloned().map_or_else(
+      || PackageJsonCacheResult::NotCached,
+      |value| PackageJsonCacheResult::Hit(value),
+    )
+  }
+
+  fn set(&self, path: PathBuf, package_json: Option<PackageJsonRc>) {
+    self.map.lock().unwrap().insert(path, package_json);
   }
 }
 
@@ -302,7 +324,7 @@ impl DenoWorkspace {
         node_analysis_cache: None,
         node_code_translator_mode: NodeCodeTranslatorMode::Disabled,
         node_resolution_cache: Some(Arc::new(NodeResolutionThreadLocalCache)),
-        package_json_cache: Some(Arc::new(PackageJsonThreadLocalCache)),
+        package_json_cache: Some(Arc::new(PackageJsonOwnedCache::new())),
         package_json_dep_resolution: None,
         require_modules: Vec::new(),
         specified_import_map: None,
