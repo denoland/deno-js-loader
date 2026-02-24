@@ -33,7 +33,7 @@ default-features = false
 features = ["rust_backend"]
 
 [dependencies.deno_ast]
-version = "=0.53.0"
+version = "=0.53.1"
 features = ["transpiling"]
 
 [dependencies.deno_cache_dir]
@@ -69,11 +69,11 @@ path = "../../deno/libs/node_resolver"
 features = ["sync"]
 
 [dependencies.sys_traits]
-version = "=0.1.22"
+version = "=0.1.24"
 features = ["real"]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
-version = "=0.1.22"
+version = "=0.1.24"
 features = ["real","wasm"]
 
 [profile.release]

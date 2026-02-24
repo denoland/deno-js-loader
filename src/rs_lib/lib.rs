@@ -278,6 +278,7 @@ impl DenoWorkspace {
               .clone(),
           ),
           preserve_jsx: options.preserve_jsx.unwrap_or(false),
+          force_check_js: false,
         },
         // todo: make this configurable
         is_cjs_resolution_mode:
@@ -328,6 +329,7 @@ impl DenoWorkspace {
           deno_npm_cache::NpmCacheSetting::Use
         },
         caching_strategy: deno_npm_installer::graph::NpmCachingStrategy::Eager,
+        clean_on_install: false,
         lifecycle_scripts_config: deno_npm_installer::LifecycleScriptsConfig {
           allowed: deno_npm_installer::PackagesAllowedScripts::None,
           denied: Vec::new(),
