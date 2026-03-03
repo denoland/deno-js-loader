@@ -681,6 +681,7 @@ dependencies = [
  "sys_traits",
  "tar",
  "thiserror",
+ "tokio",
  "url",
 ]
 
