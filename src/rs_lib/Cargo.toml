@@ -37,7 +37,7 @@ version = "=0.53.1"
 features = ["transpiling"]
 
 [dependencies.deno_cache_dir]
-version = "=0.27.0"
+path = "../../deno/libs/cache_dir"
 features = ["sync"]
 
 [dependencies.deno_config]
