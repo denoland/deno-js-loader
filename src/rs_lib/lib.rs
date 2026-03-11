@@ -492,9 +492,10 @@ impl DenoLoader {
             &self.compiler_options_resolver,
           )?;
 
-        let graph_resolver = self
-          .resolver
-          .as_graph_resolver(&self.cjs_tracker, &jsx_config);
+        let graph_resolver =
+          self
+            .resolver
+            .as_graph_resolver(&self.cjs_tracker, &jsx_config, None);
         let loader = DenoGraphLoader::new(
           self.file_fetcher.clone(),
           self.workspace_factory.global_http_cache()?.clone(),
@@ -504,6 +505,7 @@ impl DenoLoader {
             file_header_overrides: Default::default(),
             permissions: None,
             reporter: None,
+            include_npm_sources: false,
           },
         );
 
