@@ -128,9 +128,7 @@ if (typeof Deno === "undefined") {
     ),
     renameSync: wrapFs((oldPath, newPath) => fs.renameSync(oldPath, newPath)),
     linkSync: wrapFs((oldPath, newPath) => fs.linkSync(oldPath, newPath)),
-    symlinkSync: wrapFs((target, path, _type) =>
-      fs.symlinkSync(target, path)
-    ),
+    symlinkSync: wrapFs((target, path, _type) => fs.symlinkSync(target, path)),
     copyFileSync: wrapFs((src, dst) => fs.copyFileSync(src, dst)),
     chmodSync: wrapFs((path, mode) => fs.chmodSync(path, mode)),
     openSync: wrapFs((path, _options) => {
