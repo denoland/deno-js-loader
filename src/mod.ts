@@ -38,9 +38,24 @@
  */
 
 import {
-  DenoLoader as WasmLoader,
-  DenoWorkspace as WasmWorkspace,
+  type DenoLoader as WasmLoaderType,
+  type DenoWorkspace as WasmWorkspaceType,
 } from "./lib/rs_lib.js";
+
+type WasmLoader = WasmLoaderType;
+type WasmWorkspace = WasmWorkspaceType;
+
+// Use the appropriate WASM loader for the runtime.
+// Deno natively supports WASM imports; Node.js needs manual instantiation + API shim.
+const libPath = typeof Deno !== "undefined"
+  ? "./lib/rs_lib.js"
+  : "./rs_lib_node.js";
+const { DenoLoader: WasmLoader, DenoWorkspace: WasmWorkspace } = await import(
+  libPath
+) as {
+  DenoLoader: typeof WasmLoaderType;
+  DenoWorkspace: typeof WasmWorkspaceType;
+};
 
 /** Options for creating a workspace. */
 export interface WorkspaceOptions {
