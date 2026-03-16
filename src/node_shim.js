@@ -23,25 +23,25 @@ if (typeof Deno === "undefined") {
     EBADF: "BadResource",
   };
 
-  function toDenoError(err) {
+  const toDenoError = (err) => {
     const denoName = nodeCodeToDenoName[err.code];
     if (denoName) {
       err.name = denoName;
     }
     return err;
-  }
+  };
 
-  function wrapFs(fn) {
-    return function (...args) {
+  const wrapFs = (fn) => {
+    return (...args) => {
       try {
         return fn(...args);
       } catch (err) {
         throw toDenoError(err);
       }
     };
-  }
+  };
 
-  function toDenoStat(path, followSymlinks) {
+  const toDenoStat = (path, followSymlinks) => {
     const fn = followSymlinks ? fs.statSync : fs.lstatSync;
     const stat = fn(path);
     return {
@@ -66,7 +66,7 @@ if (typeof Deno === "undefined") {
       isFifo: stat.isFIFO(),
       isSocket: stat.isSocket(),
     };
-  }
+  };
 
   const osMap = {
     darwin: "darwin",
