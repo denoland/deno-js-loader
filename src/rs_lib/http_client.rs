@@ -6,7 +6,7 @@ use deno_cache_dir::file_fetcher::SendResponse;
 use deno_cache_dir::file_fetcher::StatusCode;
 use deno_error::JsErrorBox;
 use deno_npm_cache::NpmCacheHttpClientResponse;
-use deno_npm::npm_rc::RegistryConfig;
+use deno_npmrc::RegistryConfig;
 use js_sys::Array;
 use js_sys::Object;
 use js_sys::Reflect;
@@ -80,12 +80,11 @@ impl deno_cache_dir::file_fetcher::HttpClient for WasmHttpClient {
       .into_iter()
       .filter_map(|(k, v)| Some((k?.to_string(), v.to_str().ok()?.to_string())))
       .collect::<Vec<(String, String)>>();
-    let result =
-      fetch_specifier_typed(url.as_str(), headers, JsValue::NULL)
-        .await
-        .map_err(|err| {
-          SendError::Failed(Box::new(std::io::Error::other(err.to_string())))
-        })?;
+    let result = fetch_specifier_typed(url.as_str(), headers, JsValue::NULL)
+      .await
+      .map_err(|err| {
+        SendError::Failed(Box::new(std::io::Error::other(err.to_string())))
+      })?;
     let response = match result {
       FetchResult::Response(response) => response,
       FetchResult::Error(fetch_error) => {
