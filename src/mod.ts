@@ -46,11 +46,14 @@ type WasmLoader = WasmLoaderClass;
 type WasmWorkspace = WasmWorkspaceClass;
 
 // Use the appropriate WASM loader for the runtime.
-// Deno natively supports WASM imports; Node.js needs manual instantiation + API shim.
+// Deno natively supports WASM imports; Node.js needs manual instantiation.
 // deno-lint-ignore no-explicit-any
-const _lib: any = await import(
-  typeof Deno !== "undefined" ? "./lib/rs_lib.js" : "./rs_lib_node.js"
-);
+let _lib: any;
+if (typeof Deno !== "undefined") {
+  _lib = await import("./lib/rs_lib.js");
+} else {
+  _lib = await import("./rs_lib_node.js");
+}
 const WasmLoader: typeof WasmLoaderClass = _lib.DenoLoader;
 const WasmWorkspace: typeof WasmWorkspaceClass = _lib.DenoWorkspace;
 
