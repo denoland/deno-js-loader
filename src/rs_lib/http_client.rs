@@ -6,6 +6,7 @@ use deno_cache_dir::file_fetcher::SendResponse;
 use deno_cache_dir::file_fetcher::StatusCode;
 use deno_error::JsErrorBox;
 use deno_npm_cache::NpmCacheHttpClientResponse;
+use deno_npmrc::RegistryConfig;
 use js_sys::Array;
 use js_sys::Object;
 use js_sys::Reflect;
@@ -17,7 +18,11 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen(module = "/helpers.js")]
 extern "C" {
-  async fn fetch_specifier(specifier: String, headers: JsValue) -> JsValue;
+  async fn fetch_specifier(
+    specifier: String,
+    headers: JsValue,
+    client_cert_config: JsValue,
+  ) -> JsValue;
 }
 
 enum FetchResult {
@@ -39,9 +44,11 @@ struct Response {
 async fn fetch_specifier_typed(
   specifier: &str,
   headers: Vec<(String, String)>,
+  client_cert_config: JsValue,
 ) -> Result<FetchResult, anyhow::Error> {
   let headers = headers_to_js_object(&headers);
-  let response = fetch_specifier(specifier.to_string(), headers).await;
+  let response =
+    fetch_specifier(specifier.to_string(), headers, client_cert_config).await;
   parse_fetch_result(response).map_err(|err| {
     if let Some(s) = err.as_string() {
       anyhow::anyhow!(s)
@@ -73,14 +80,11 @@ impl deno_cache_dir::file_fetcher::HttpClient for WasmHttpClient {
       .into_iter()
       .filter_map(|(k, v)| Some((k?.to_string(), v.to_str().ok()?.to_string())))
       .collect::<Vec<(String, String)>>();
-    let result =
-      fetch_specifier_typed(url.as_str(), headers)
-        .await
-        .map_err(|err| {
-          SendError::Failed(Box::new(std::io::Error::other(
-            err.to_string(),
-          )))
-        })?;
+    let result = fetch_specifier_typed(url.as_str(), headers, JsValue::NULL)
+      .await
+      .map_err(|err| {
+        SendError::Failed(Box::new(std::io::Error::other(err.to_string())))
+      })?;
     let response = match result {
       FetchResult::Response(response) => response,
       FetchResult::Error(fetch_error) => {
@@ -107,7 +111,7 @@ impl deno_npm_cache::NpmCacheHttpClient for WasmHttpClient {
     url: Url,
     maybe_auth: Option<String>,
     maybe_etag: Option<String>,
-    _maybe_registry_config: Option<&deno_npmrc::RegistryConfig>,
+    maybe_registry_config: Option<&RegistryConfig>,
   ) -> Result<NpmCacheHttpClientResponse, deno_npm_cache::DownloadError> {
     let mut headers = Vec::new();
     if let Some(auth) = maybe_auth {
@@ -117,8 +121,9 @@ impl deno_npm_cache::NpmCacheHttpClient for WasmHttpClient {
       headers.push(("if-none-match".to_string(), etag));
     }
 
+    let client_cert_config = registry_config_to_js(maybe_registry_config);
     let result =
-      fetch_specifier_typed(url.as_str(), headers)
+      fetch_specifier_typed(url.as_str(), headers, client_cert_config)
         .await
         .map_err(|err| deno_npm_cache::DownloadError {
           status_code: None,
@@ -160,6 +165,32 @@ impl deno_npm_cache::NpmCacheHttpClient for WasmHttpClient {
       }),
     }
   }
+}
+
+fn registry_config_to_js(
+  maybe_registry_config: Option<&RegistryConfig>,
+) -> JsValue {
+  let Some(config) = maybe_registry_config else {
+    return JsValue::NULL;
+  };
+  let (Some(certfile), Some(keyfile)) = (&config.certfile, &config.keyfile)
+  else {
+    return JsValue::NULL;
+  };
+  let obj = Object::new();
+  Reflect::set(
+    &obj,
+    &JsValue::from_str("certfile"),
+    &JsValue::from_str(certfile),
+  )
+  .unwrap();
+  Reflect::set(
+    &obj,
+    &JsValue::from_str("keyfile"),
+    &JsValue::from_str(keyfile),
+  )
+  .unwrap();
+  obj.into()
 }
 
 fn headers_to_js_object(headers: &[(String, String)]) -> JsValue {
@@ -233,9 +264,10 @@ fn response_headers_to_headermap(headers: JsValue) -> HeaderMap {
       && let (Ok(name), Ok(val)) = (
         HeaderName::from_bytes(k.as_bytes()),
         HeaderValue::from_str(&v),
-      ) {
-        map.append(name, val);
-      }
+      )
+    {
+      map.append(name, val);
+    }
   }
 
   map

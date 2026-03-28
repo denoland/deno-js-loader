@@ -49,11 +49,14 @@ version = "=0.107.1"
 features = ["swc"]
 default-features = false
 
-[dependencies.deno_npm_cache]
-path = "../../deno/libs/npm_cache"
+[dependencies.deno_npm]
+path = "../../deno/libs/npm"
 
 [dependencies.deno_npmrc]
 path = "../../deno/libs/npmrc"
+
+[dependencies.deno_npm_cache]
+path = "../../deno/libs/npm_cache"
 
 [dependencies.deno_npm_installer]
 path = "../../deno/libs/npm_installer"
