@@ -3,6 +3,9 @@
  *
  * This can be used to create bundler plugins or libraries that use deno resolution.
  *
+ * Works in both Deno and Node.js. For Node.js, install from JSR
+ * (`npx jsr add @deno/loader`) which provides pre-transpiled JavaScript.
+ *
  * @example
  * ```ts
  * import { Workspace, ResolutionMode, type LoadResponse, RequestedModuleType } from "@deno/loader";
