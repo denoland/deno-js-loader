@@ -52,6 +52,9 @@ default-features = false
 [dependencies.deno_npm_cache]
 path = "../../deno/libs/npm_cache"
 
+[dependencies.deno_npmrc]
+path = "../../deno/libs/npmrc"
+
 [dependencies.deno_npm_installer]
 path = "../../deno/libs/npm_installer"
 default-features = false
@@ -69,11 +72,11 @@ path = "../../deno/libs/node_resolver"
 features = ["sync"]
 
 [dependencies.sys_traits]
-version = "=0.1.24"
+version = "=0.1.27"
 features = ["real"]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
-version = "=0.1.24"
+version = "=0.1.27"
 features = ["real","wasm"]
 
 [profile.release]

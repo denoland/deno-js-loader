@@ -107,6 +107,7 @@ impl deno_npm_cache::NpmCacheHttpClient for WasmHttpClient {
     url: Url,
     maybe_auth: Option<String>,
     maybe_etag: Option<String>,
+    _maybe_registry_config: Option<&deno_npmrc::RegistryConfig>,
   ) -> Result<NpmCacheHttpClientResponse, deno_npm_cache::DownloadError> {
     let mut headers = Vec::new();
     if let Some(auth) = maybe_auth {
