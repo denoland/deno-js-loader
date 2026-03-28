@@ -19,6 +19,7 @@
       ".vscode",
       ".gitmodules",
       "deno.lock",
+      "src/package.json",
       "!./src/lib",
       "scripts",
       "tests/"

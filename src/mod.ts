@@ -3,6 +3,9 @@
  *
  * This can be used to create bundler plugins or libraries that use deno resolution.
  *
+ * Works in both Deno and Node.js. For Node.js, install from JSR
+ * (`npx jsr add @deno/loader`) which provides pre-transpiled JavaScript.
+ *
  * @example
  * ```ts
  * import { Workspace, ResolutionMode, type LoadResponse, RequestedModuleType } from "@deno/loader";
@@ -37,10 +40,25 @@
  * @module
  */
 
-import {
-  DenoLoader as WasmLoader,
-  DenoWorkspace as WasmWorkspace,
+import type {
+  DenoLoader as WasmLoaderClass,
+  DenoWorkspace as WasmWorkspaceClass,
 } from "./lib/rs_lib.js";
+
+type WasmLoader = WasmLoaderClass;
+type WasmWorkspace = WasmWorkspaceClass;
+
+// Use the appropriate WASM loader for the runtime.
+// Deno natively supports WASM imports; Node.js needs manual instantiation.
+// deno-lint-ignore no-explicit-any
+let _lib: any;
+if (typeof Deno !== "undefined") {
+  _lib = await import("./lib/rs_lib.js");
+} else {
+  _lib = await import("./rs_lib_node.js");
+}
+const WasmLoader: typeof WasmLoaderClass = _lib.DenoLoader;
+const WasmWorkspace: typeof WasmWorkspaceClass = _lib.DenoWorkspace;
 
 /** Options for creating a workspace. */
 export interface WorkspaceOptions {
