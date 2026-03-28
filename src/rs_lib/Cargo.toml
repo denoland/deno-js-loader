@@ -75,11 +75,11 @@ path = "../../deno/libs/node_resolver"
 features = ["sync"]
 
 [dependencies.sys_traits]
-version = "=0.1.25"
+version = "=0.1.27"
 features = ["real"]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.sys_traits]
-version = "=0.1.25"
+version = "=0.1.27"
 features = ["real","wasm"]
 
 [profile.release]
