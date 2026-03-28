@@ -1,9 +1,17 @@
 // Node.js integration test for @deno/loader.
-// Exercises the WASM loader under Node.js to verify the Deno API shim works.
+// Imports via the public mod.ts API to verify the full Node.js path:
+// runtime detection → dynamic import → WASM instantiation → loader operations.
 
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import { DenoWorkspace, DenoLoader } from "../../../src/rs_lib_node.js";
+import {
+  Workspace,
+  Loader,
+  ResolutionMode,
+  RequestedModuleType,
+  MediaType,
+  ResolveError,
+} from "../../../src/mod.ts";
 
 const configPath = fileURLToPath(new URL("deno.json", import.meta.url));
 const mainTsPath = fileURLToPath(new URL("main.ts", import.meta.url));
@@ -30,51 +38,65 @@ console.log("Node.js integration tests");
 // ---------- workspace & loader creation ----------
 
 await test("create workspace and loader", async () => {
-  const workspace = new DenoWorkspace({ configPath });
-  const loader = await workspace.create_loader();
-  assert.ok(loader instanceof DenoLoader);
-  loader.free();
-  workspace.free();
+  const workspace = new Workspace({ configPath });
+  const loader = await workspace.createLoader();
+  assert.ok(loader instanceof Loader);
+  loader[Symbol.dispose]();
+  workspace[Symbol.dispose]();
 });
 
 // ---------- entrypoints, resolve, load ----------
 
-const workspace = new DenoWorkspace({ configPath });
-const loader = await workspace.create_loader();
+const workspace = new Workspace({ configPath });
+const loader = await workspace.createLoader();
 
 await test("add entrypoints", async () => {
-  const diagnostics = await loader.add_entrypoints([mainTsPath]);
+  const diagnostics = await loader.addEntrypoints([mainTsPath]);
   assert.deepStrictEqual(diagnostics, []);
 });
 
-await test("resolve_sync resolves a file specifier", async () => {
-  const resolved = loader.resolve_sync(mainTsPath, undefined, 0 /* Import */);
+await test("resolveSync resolves a file specifier", async () => {
+  const resolved = loader.resolveSync(
+    mainTsPath,
+    undefined,
+    ResolutionMode.Import,
+  );
   assert.ok(resolved.endsWith("main.ts"), `unexpected: ${resolved}`);
 });
 
-await test("resolve_sync resolves relative specifier", async () => {
-  const resolved = loader.resolve_sync("./main.ts", mainTsUrl, 0);
+await test("resolveSync resolves relative specifier", async () => {
+  const resolved = loader.resolveSync(
+    "./main.ts",
+    mainTsUrl,
+    ResolutionMode.Import,
+  );
   assert.ok(resolved.endsWith("main.ts"), `unexpected: ${resolved}`);
 });
 
 await test("resolve (async) resolves a specifier", async () => {
-  const resolved = await loader.resolve("./main.ts", mainTsUrl, 0);
+  const resolved = await loader.resolve(
+    "./main.ts",
+    mainTsUrl,
+    ResolutionMode.Import,
+  );
   assert.ok(resolved.endsWith("main.ts"), `unexpected: ${resolved}`);
 });
 
 await test("load returns transpiled TypeScript", async () => {
-  const response = await loader.load(mainTsUrl, 0 /* Default */);
+  const response = await loader.load(mainTsUrl, RequestedModuleType.Default);
   assert.strictEqual(response.kind, "module");
   assert.ok(response.code instanceof Uint8Array);
+  assert.strictEqual(response.mediaType, MediaType.TypeScript);
   const code = new TextDecoder().decode(response.code);
-  // TypeScript types should be stripped
   assert.ok(!code.includes(": string"), "types should be transpiled away");
-  // The import should remain
   assert.ok(code.includes("node:path"), "import should be preserved");
 });
 
 await test("load node: specifier returns external", async () => {
-  const response = await loader.load("node:path", 0);
+  const response = await loader.load(
+    "node:path",
+    RequestedModuleType.Default,
+  );
   assert.strictEqual(response.kind, "external");
   assert.strictEqual(response.specifier, "node:path");
 });
@@ -82,7 +104,7 @@ await test("load node: specifier returns external", async () => {
 // ---------- graph ----------
 
 await test("get_graph returns graph with roots", async () => {
-  const graph = loader.get_graph();
+  const graph = loader.getGraphUnstable();
   assert.ok(graph != null);
   assert.ok(Array.isArray(graph.roots));
   assert.ok(graph.roots.length > 0);
@@ -93,7 +115,7 @@ await test("get_graph returns graph with roots", async () => {
 await test("loading non-existent module throws", async () => {
   const nonExistentUrl = new URL("does_not_exist.ts", import.meta.url).href;
   await assert.rejects(
-    () => loader.load(nonExistentUrl, 0),
+    () => loader.load(nonExistentUrl, RequestedModuleType.Default),
     (err) => {
       assert.ok(err instanceof Error);
       return true;
@@ -103,7 +125,7 @@ await test("loading non-existent module throws", async () => {
 
 // ---------- cleanup ----------
 
-loader.free();
-workspace.free();
+loader[Symbol.dispose]();
+workspace[Symbol.dispose]();
 
 console.log(`\n${passed} tests passed`);
