@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   createLoader,
+  type Loader,
   type ModuleLoadResponse,
   RequestedModuleType,
   ResolutionMode,
@@ -9,7 +10,7 @@ import {
 const configPath = import.meta.dirname + "/testdata/deno.json";
 
 function resolveAndLoad(
-  loader: { resolveSync: Function; load: Function },
+  loader: Loader,
   file: string,
   moduleType = RequestedModuleType.Default,
 ) {
