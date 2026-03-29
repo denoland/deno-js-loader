@@ -998,7 +998,11 @@ fn create_module_response(
   media_type: MediaType,
   source: &[u8],
 ) -> JsValue {
-  let source_map = extract_inline_source_map(source);
+  let source_map = if media_type.is_emittable() {
+    extract_inline_source_map(source)
+  } else {
+    None
+  };
   let obj = Object::new();
   js_sys::Reflect::set(
     &obj,
