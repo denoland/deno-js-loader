@@ -171,6 +171,15 @@ export interface ModuleLoadResponse {
   mediaType: MediaType;
   /** Code that was loaded. */
   code: Uint8Array;
+  /**
+   * Source map for the loaded code, if available.
+   *
+   * This is the decoded JSON source map extracted from inline source maps
+   * that are generated during transpilation. It will be `undefined` for
+   * non-transpiled files (e.g. JavaScript, JSON, CSS) or when transpilation
+   * is disabled via `noTranspile`.
+   */
+  sourceMap?: Uint8Array;
 }
 
 /** Kind of resolution. */

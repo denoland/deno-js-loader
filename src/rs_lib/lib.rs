@@ -65,6 +65,7 @@ use deno_resolver::workspace::MappedResolutionError;
 use deno_semver::SmallStackString;
 use deno_semver::jsr::JsrPackageReqReference;
 use deno_semver::npm::NpmPackageReqReference;
+use base64::Engine as _;
 use js_sys::Object;
 use js_sys::Uint8Array;
 use log::LevelFilter;
@@ -977,11 +978,31 @@ fn deno_resolve_error_code(err: &DenoResolveError) -> Option<NodeJsErrorCode> {
   }
 }
 
+const SOURCE_MAP_PREFIX: &str =
+  "//# sourceMappingURL=data:application/json;base64,";
+
+/// Extracts an inline source map from transpiled source code.
+/// Returns the decoded source map JSON bytes, if found.
+fn extract_inline_source_map(source: &[u8]) -> Option<Vec<u8>> {
+  let source_str = std::str::from_utf8(source).ok()?;
+  let pos = source_str.rfind(SOURCE_MAP_PREFIX)?;
+  let base64_start = pos + SOURCE_MAP_PREFIX.len();
+  let base64_data = source_str[base64_start..].trim_end();
+  base64::engine::general_purpose::STANDARD
+    .decode(base64_data)
+    .ok()
+}
+
 fn create_module_response(
   url: &Url,
   media_type: MediaType,
   source: &[u8],
 ) -> JsValue {
+  let source_map = if media_type.is_emittable() {
+    extract_inline_source_map(source)
+  } else {
+    None
+  };
   let obj = Object::new();
   js_sys::Reflect::set(
     &obj,
@@ -1000,6 +1021,11 @@ fn create_module_response(
   .unwrap();
   let code = Uint8Array::from(source);
   js_sys::Reflect::set(&obj, &JsValue::from_str("code"), &code).unwrap();
+  if let Some(sm) = source_map {
+    let sm_array = Uint8Array::from(sm.as_slice());
+    js_sys::Reflect::set(&obj, &JsValue::from_str("sourceMap"), &sm_array)
+      .unwrap();
+  }
   obj.into()
 }
 

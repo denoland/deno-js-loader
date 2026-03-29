@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   createLoader,
   MediaType,
+  type ModuleLoadResponse,
   RequestedModuleType,
   ResolutionMode,
   Workspace,
@@ -72,6 +73,16 @@ Deno.test("loads TypeScript and checks media type", async () => {
     // Should be transpiled - no type annotations
     assert(!code.includes(": string"), "types should be transpiled away");
     assert(code.includes("node:path"), "import should be preserved");
+
+    // Source map should be available for transpiled TypeScript
+    const moduleResponse = response as ModuleLoadResponse;
+    assert(
+      moduleResponse.sourceMap,
+      "sourceMap should be defined for transpiled TS",
+    );
+    const sm = JSON.parse(new TextDecoder().decode(moduleResponse.sourceMap));
+    assertEquals(sm.version, 3);
+    assertEquals(sm.sources, ["main.ts"]);
   }
 });
 
@@ -96,6 +107,12 @@ Deno.test("noTranspile preserves TypeScript syntax", async () => {
     assert(
       code.includes(": string"),
       "types should be preserved with noTranspile",
+    );
+    // Source map should not be present when noTranspile is set
+    assertEquals(
+      (response as ModuleLoadResponse).sourceMap,
+      undefined,
+      "sourceMap should be undefined with noTranspile",
     );
   }
 });

@@ -92,6 +92,16 @@ await test("load returns transpiled TypeScript", async () => {
   assert.ok(code.includes("node:path"), "import should be preserved");
 });
 
+await test("load returns source map for transpiled TypeScript", async () => {
+  const response = await loader.load(mainTsUrl, RequestedModuleType.Default);
+  assert.strictEqual(response.kind, "module");
+  assert.ok(response.sourceMap instanceof Uint8Array, "sourceMap should be Uint8Array");
+  const sm = JSON.parse(new TextDecoder().decode(response.sourceMap));
+  assert.strictEqual(sm.version, 3);
+  assert.ok(Array.isArray(sm.sources), "sources should be an array");
+  assert.ok(sm.sources[0].includes("main.ts"), "source should reference main.ts");
+});
+
 await test("load node: specifier returns external", async () => {
   const response = await loader.load(
     "node:path",

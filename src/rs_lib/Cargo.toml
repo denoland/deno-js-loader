@@ -10,6 +10,7 @@ path = "lib.rs"
 # update this by running ./scripts/update-deps.ts
 [dependencies]
 anyhow = "1.0.57"
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 console_error_panic_hook = "0.1.6"
 js-sys = "=0.3.82"
 log = "0.4.28"
