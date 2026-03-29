@@ -1,6 +1,7 @@
 import {
   assertResponseText,
   createLoader,
+  type ModuleLoadResponse,
   RequestedModuleType,
   ResolutionMode,
   type WorkspaceOptions,
@@ -35,15 +36,30 @@ Deno.test("loads jsx transpiled", async () => {
     ResolutionMode.Import,
   );
 
-  assertResponseText(
-    await loader.load(mainJsxUrl, RequestedModuleType.Default),
-    `import { jsxTemplate as _jsxTemplate } from "react/jsx-runtime";
+  {
+    const response = await loader.load(
+      mainJsxUrl,
+      RequestedModuleType.Default,
+    );
+    assertResponseText(
+      response,
+      `import { jsxTemplate as _jsxTemplate } from "react/jsx-runtime";
 const $$_tpl_1 = [
   "<div></div>"
 ];
 console.log(_jsxTemplate($$_tpl_1));
 ${mainJsxSourceMappingURL}`,
-  );
+    );
+
+    // verify sourceMap field is returned for transpiled code
+    const moduleResponse = response as ModuleLoadResponse;
+    assert(moduleResponse.sourceMap, "sourceMap should be defined");
+    const sourceMapJson = JSON.parse(
+      new TextDecoder().decode(moduleResponse.sourceMap),
+    );
+    assertEquals(sourceMapJson.version, 3);
+    assertEquals(sourceMapJson.sources, ["main.jsx"]);
+  }
 
   // resolves jsx-dev
   const jsx = loader.resolveSync(
@@ -72,9 +88,18 @@ ${mainJsxSourceMappingURL}`,
     const newLoader = await workspace.createLoader();
     const diagnostics = await newLoader.addEntrypoints([mainJsx, mainTsx]);
     assertEquals(diagnostics, []);
+    const jsxResponse = await newLoader.load(
+      mainJsxUrl,
+      RequestedModuleType.Default,
+    );
     assertResponseText(
-      await newLoader.load(mainJsxUrl, RequestedModuleType.Default),
+      jsxResponse,
       `console.log(<div />);\n`,
+    );
+    // sourceMap should be undefined when noTranspile is set
+    assertEquals(
+      (jsxResponse as ModuleLoadResponse).sourceMap,
+      undefined,
     );
     assertResponseText(
       await newLoader.load(mainTsxUrl, RequestedModuleType.Default),

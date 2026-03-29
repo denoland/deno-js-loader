@@ -1,6 +1,8 @@
+import { assert, assertEquals } from "@std/assert";
 import {
   assertResponseText,
   createLoader,
+  type ModuleLoadResponse,
   RequestedModuleType,
   ResolutionMode,
 } from "../helpers.ts";
@@ -25,4 +27,14 @@ Deno.test("loads linked entrypoint", async () => {
 `,
     { skipSourceMap: true },
   );
+
+  // Linked TypeScript package should have a source map
+  const moduleResponse = response as ModuleLoadResponse;
+  assert(
+    moduleResponse.sourceMap,
+    "sourceMap should be defined for linked TS package",
+  );
+  const sm = JSON.parse(new TextDecoder().decode(moduleResponse.sourceMap));
+  assertEquals(sm.version, 3);
+  assert(Array.isArray(sm.sources));
 });
