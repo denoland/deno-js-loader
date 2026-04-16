@@ -11,6 +11,7 @@ import {
 Deno.test("loader works under Node.js", async () => {
   const result = await new Deno.Command("node", {
     args: [
+      "--experimental-strip-types",
       "tests/node_compat/testdata/node_test.mjs",
     ],
     stdout: "piped",
